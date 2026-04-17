@@ -53,7 +53,7 @@ conductor/
 ├── TODO.md                                # NEW — automated tests + future envs (Local, Docker)
 ├── build.gradle.kts
 ├── settings.gradle.kts
-├── gradle.properties                      # pluginGroup=dev.devdepot.conductor, IC 2024.1, JVM 17
+├── gradle.properties                      # pluginGroup=io.devdepot.conductor, IC 2024.1, JVM 17
 ├── gradle/wrapper/
 └── src/main/
     ├── resources/META-INF/
@@ -84,7 +84,7 @@ conductor/
 
 ### Naming / branding
 
-Plugin id: `dev.devdepot.conductor`. Display name: `Conductor`. Action group: `Conductor` under `VcsGroups`. Notification group id: `Conductor`.
+Plugin id: `io.devdepot.conductor`. Display name: `Conductor`. Action group: `Conductor` under `VcsGroups`. Notification group id: `Conductor`.
 
 ---
 
@@ -172,7 +172,7 @@ Run through the README's manual test checklist end-to-end inside `./gradlew runI
 
 ```xml
 <idea-plugin>
-  <id>dev.devdepot.conductor</id>
+  <id>io.devdepot.conductor</id>
   <name>Conductor</name>
   <vendor>devdepot</vendor>
   <description>AI Workspaces — isolated Claude sessions backed by git worktrees.</description>
@@ -182,24 +182,24 @@ Run through the README's manual test checklist end-to-end inside `./gradlew runI
   <depends>org.jetbrains.plugins.terminal</depends>
 
   <extensions defaultExtensionNs="com.intellij">
-    <projectService serviceImplementation="dev.devdepot.conductor.workspace.WorkspaceService"/>
-    <projectService serviceImplementation="dev.devdepot.conductor.ide.ProjectOpener"/>
-    <projectService serviceImplementation="dev.devdepot.conductor.settings.ConductorSettings"/>
+    <projectService serviceImplementation="io.devdepot.conductor.workspace.WorkspaceService"/>
+    <projectService serviceImplementation="io.devdepot.conductor.ide.ProjectOpener"/>
+    <projectService serviceImplementation="io.devdepot.conductor.settings.ConductorSettings"/>
     <projectConfigurable
         parentId="tools"
-        instance="dev.devdepot.conductor.settings.ConductorConfigurable"
-        id="dev.devdepot.conductor.settings"
+        instance="io.devdepot.conductor.settings.ConductorConfigurable"
+        id="io.devdepot.conductor.settings"
         displayName="Conductor"/>
-    <postStartupActivity implementation="dev.devdepot.conductor.startup.ConductorStartupActivity"/>
+    <postStartupActivity implementation="io.devdepot.conductor.startup.ConductorStartupActivity"/>
     <notificationGroup id="Conductor" displayType="BALLOON" toolWindowId="Version Control"/>
   </extensions>
 
   <actions>
     <group id="Conductor.Menu" text="Conductor" popup="true">
       <add-to-group group-id="VcsGroups" anchor="last"/>
-      <action id="Conductor.NewWorkspace"    class="dev.devdepot.conductor.actions.NewWorkspaceAction"    text="New AI Workspace"/>
-      <action id="Conductor.ListWorkspaces"  class="dev.devdepot.conductor.actions.ListWorkspacesAction"  text="List AI Workspaces"/>
-      <action id="Conductor.FinishWorkspace" class="dev.devdepot.conductor.actions.FinishWorkspaceAction" text="Finish AI Workspace"/>
+      <action id="Conductor.NewWorkspace"    class="io.devdepot.conductor.actions.NewWorkspaceAction"    text="New AI Workspace"/>
+      <action id="Conductor.ListWorkspaces"  class="io.devdepot.conductor.actions.ListWorkspacesAction"  text="List AI Workspaces"/>
+      <action id="Conductor.FinishWorkspace" class="io.devdepot.conductor.actions.FinishWorkspaceAction" text="Finish AI Workspace"/>
     </group>
   </actions>
 </idea-plugin>
@@ -287,5 +287,5 @@ End-to-end check after Phase 6:
 1. `./gradlew runIde` boots the sandbox IDE.
 2. In the sandbox, open `/tmp/conductor-playground` (a fresh git repo with at least one commit).
 3. Walk through every item in the README's "Manual test checklist" section (each item maps to a journey in `USER_JOURNEYS.md`, J0–J6).
-4. `tail -f build/idea-sandbox/system/log/idea.log` in another terminal — no `ERROR` or `WARN` lines from `dev.devdepot.conductor.*` during the checklist.
+4. `tail -f build/idea-sandbox/system/log/idea.log` in another terminal — no `ERROR` or `WARN` lines from `io.devdepot.conductor.*` during the checklist.
 5. `./gradlew buildPlugin` produces `build/distributions/conductor-0.1.0.zip`; install it into your real JetBrains IDE and re-run a smoke test (New AI Workspace → work in the new window → Finish → Merge).

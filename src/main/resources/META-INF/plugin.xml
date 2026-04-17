@@ -1,0 +1,46 @@
+<idea-plugin>
+    <id>io.devdepot.conductor</id>
+    <name>Conductor</name>
+    <vendor>devdepot</vendor>
+    <description><![CDATA[
+        AI Workspaces — isolated Claude sessions backed by git worktrees.
+        <br/><br/>
+        Each workspace pairs a git worktree with its own IDE window and a terminal tab
+        running a configurable startup command (defaulting to <code>claude</code>).
+    ]]></description>
+
+    <depends>com.intellij.modules.platform</depends>
+    <depends>Git4Idea</depends>
+    <depends>org.jetbrains.plugins.terminal</depends>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <projectService serviceImplementation="io.devdepot.conductor.workspace.WorkspaceService"/>
+        <projectService serviceImplementation="io.devdepot.conductor.ide.ProjectOpener"/>
+        <projectService serviceImplementation="io.devdepot.conductor.settings.ConductorSettings"/>
+        <projectConfigurable
+            parentId="tools"
+            instance="io.devdepot.conductor.settings.ConductorConfigurable"
+            id="io.devdepot.conductor.settings"
+            displayName="Conductor"/>
+        <postStartupActivity implementation="io.devdepot.conductor.startup.ConductorStartupActivity"/>
+        <notificationGroup id="Conductor" displayType="BALLOON" toolWindowId="Version Control"/>
+    </extensions>
+
+    <actions>
+        <group id="Conductor.Menu" text="Conductor" popup="true">
+            <add-to-group group-id="VcsGroups" anchor="last"/>
+            <action id="Conductor.NewWorkspace"
+                    class="io.devdepot.conductor.actions.NewWorkspaceAction"
+                    text="New AI Workspace"
+                    description="Create a new AI workspace (git worktree + dedicated IDE window + claude)."/>
+            <action id="Conductor.ListWorkspaces"
+                    class="io.devdepot.conductor.actions.ListWorkspacesAction"
+                    text="List AI Workspaces"
+                    description="Show all active AI workspaces and switch between them."/>
+            <action id="Conductor.FinishWorkspace"
+                    class="io.devdepot.conductor.actions.FinishWorkspaceAction"
+                    text="Finish AI Workspace"
+                    description="Merge, rebase, squash, or discard the current AI workspace."/>
+        </group>
+    </actions>
+</idea-plugin>
