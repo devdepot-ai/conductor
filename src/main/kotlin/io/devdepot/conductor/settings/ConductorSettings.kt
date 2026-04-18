@@ -29,6 +29,12 @@ class ConductorSettings(private val project: Project) {
         var defaultMergeStrategy: String = MergeStrategy.MERGE_NO_FF.id,
         var branchPrefix: String = "wt/",
         var enforceCleanTreeOnFinish: Boolean = true,
+        var localFinishEnabled: Boolean = false,
+        var createPrOnFinish: Boolean = true,
+        var autoReapOnMerge: Boolean = false,
+        var prPollIntervalSeconds: Int = 120,
+        var ghCliCommand: String = "gh",
+        var bbCliCommand: String = "bb",
     )
 
     private var state: State = State()
@@ -86,6 +92,30 @@ class ConductorSettings(private val project: Project) {
 
     val enforceCleanTreeOnFinish: Boolean
         get() { ensureLoaded(); return state.enforceCleanTreeOnFinish }
+
+    var localFinishEnabled: Boolean
+        get() { ensureLoaded(); return state.localFinishEnabled }
+        set(v) { ensureLoaded(); state.localFinishEnabled = v }
+
+    var createPrOnFinish: Boolean
+        get() { ensureLoaded(); return state.createPrOnFinish }
+        set(v) { ensureLoaded(); state.createPrOnFinish = v }
+
+    var autoReapOnMerge: Boolean
+        get() { ensureLoaded(); return state.autoReapOnMerge }
+        set(v) { ensureLoaded(); state.autoReapOnMerge = v }
+
+    var prPollIntervalSeconds: Int
+        get() { ensureLoaded(); return state.prPollIntervalSeconds.coerceAtLeast(30) }
+        set(v) { ensureLoaded(); state.prPollIntervalSeconds = v.coerceAtLeast(30) }
+
+    var ghCliCommand: String
+        get() { ensureLoaded(); return state.ghCliCommand.ifBlank { "gh" } }
+        set(v) { ensureLoaded(); state.ghCliCommand = v }
+
+    var bbCliCommand: String
+        get() { ensureLoaded(); return state.bbCliCommand.ifBlank { "bb" } }
+        set(v) { ensureLoaded(); state.bbCliCommand = v }
 
     companion object {
         fun get(project: Project): ConductorSettings = project.service()

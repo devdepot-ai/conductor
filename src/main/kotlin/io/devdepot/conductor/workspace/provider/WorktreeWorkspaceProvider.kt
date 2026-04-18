@@ -191,26 +191,64 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             )
         }
 
-        closeWorktreeWindow(workspace.worktreePath)
+        val teardown = teardown(repo, workspace.worktreePath, branch, deleteBranch, force = false)
+        if (teardown != null) return teardown
 
-        val remove = Git.worktreeRemove(repo, workspace.worktreePath, force = false)
+        return WorkspaceService.FinishResult.Ok(
+            "Finished `$branch` onto `$baseBranch` (${strategy.label}).",
+        )
+    }
+
+    override fun reap(
+        project: Project,
+        workspace: Workspace,
+        deleteBranch: Boolean,
+    ): WorkspaceService.FinishResult {
+        require(workspace is WorktreeWorkspace) {
+            "WorktreeWorkspaceProvider can only reap WorktreeWorkspaces, got ${workspace::class.simpleName}"
+        }
+        val repo = Git.mainRepoRoot(workspace.worktreePath)
+            ?: return WorkspaceService.FinishResult.Error("Could not locate main repository.")
+        val teardown = teardown(
+            repo,
+            workspace.worktreePath,
+            workspace.branch,
+            deleteBranch,
+            force = false,
+        )
+        if (teardown != null) return teardown
+        return WorkspaceService.FinishResult.Ok("Reaped `${workspace.branch}`.")
+    }
+
+    /**
+     * Shared teardown body: close the IDE window, remove the worktree,
+     * optionally delete the branch, refresh the trunk's VCS. Returns `null`
+     * on success, or a pre-populated error result for the caller to surface.
+     */
+    private fun teardown(
+        repo: Path,
+        worktreePath: Path,
+        branch: String,
+        deleteBranch: Boolean,
+        force: Boolean,
+    ): WorkspaceService.FinishResult? {
+        closeWorktreeWindow(worktreePath)
+        val remove = Git.worktreeRemove(repo, worktreePath, force = force)
         if (!remove.ok) {
             return WorkspaceService.FinishResult.Error(
-                "git worktree remove refused:\n${remove.stderr.ifBlank { remove.stdout }}\n\n" +
-                    "Retry with Discard to force-remove.",
+                "git worktree remove${if (force) " --force" else ""} failed:\n" +
+                    "${remove.stderr.ifBlank { remove.stdout }}" +
+                    if (force) "" else "\n\nRetry with Discard to force-remove.",
             )
         }
         if (deleteBranch) {
-            val del = Git.branchDelete(repo, branch, force = false)
+            val del = Git.branchDelete(repo, branch, force = force)
             if (!del.ok) {
                 log.warn("branch delete failed: ${del.stderr}")
             }
         }
-
         refreshMainRepoVcs(repo)
-        return WorkspaceService.FinishResult.Ok(
-            "Finished `$branch` onto `$baseBranch` (${strategy.label}).",
-        )
+        return null
     }
 
     override fun discard(project: Project, workspace: Workspace): WorkspaceService.FinishResult {
@@ -219,15 +257,14 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         }
         val repo = Git.mainRepoRoot(workspace.worktreePath)
             ?: return WorkspaceService.FinishResult.Error("Could not locate main repository.")
-        closeWorktreeWindow(workspace.worktreePath)
-        val remove = Git.worktreeRemove(repo, workspace.worktreePath, force = true)
-        if (!remove.ok) {
-            return WorkspaceService.FinishResult.Error(
-                "git worktree remove --force failed:\n${remove.stderr.ifBlank { remove.stdout }}",
-            )
-        }
-        Git.branchDelete(repo, workspace.branch, force = true)
-        refreshMainRepoVcs(repo)
+        val teardown = teardown(
+            repo,
+            workspace.worktreePath,
+            workspace.branch,
+            deleteBranch = true,
+            force = true,
+        )
+        if (teardown != null) return teardown
         return WorkspaceService.FinishResult.Ok("Discarded `${workspace.branch}`.")
     }
 

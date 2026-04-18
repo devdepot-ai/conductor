@@ -5,13 +5,18 @@ import com.intellij.openapi.components.Service
 import com.intellij.openapi.components.service
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
+import io.devdepot.conductor.forge.ForgeDetector
+import io.devdepot.conductor.forge.PrClientFactory
+import io.devdepot.conductor.forge.PrOutcome
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
+import io.devdepot.conductor.startup.FinishCommandRunner
 import io.devdepot.conductor.workspace.provider.CreateSpec
 import io.devdepot.conductor.workspace.provider.WorkspaceProvider
 import io.devdepot.conductor.workspace.provider.WorktreeWorkspaceProvider
 import java.nio.file.Path
+import java.time.Instant
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -38,7 +43,33 @@ class WorkspaceService(private val project: Project) {
         data class Dirty(val files: List<String>) : FinishResult()
         data class Conflict(val message: String) : FinishResult()
         data class Error(val message: String) : FinishResult()
+
+        /**
+         * A PR was opened on the forge. If [awaitingMerge] is true the
+         * workspace is preserved and the watcher will reap it on merge;
+         * otherwise a local merge also completed (the workspace is already
+         * gone by the time the caller sees this variant).
+         */
+        data class PrOpened(
+            val url: String,
+            val number: Int,
+            val awaitingMerge: Boolean,
+        ) : FinishResult()
+
+        data class PrCreateFailed(val message: String) : FinishResult()
     }
+
+    data class FinishRequest(
+        val workspace: Workspace,
+        val runFinishCommand: Boolean,
+        val openPr: Boolean,
+        val prTitle: String,
+        val prBody: String,
+        val mergeLocally: Boolean,
+        val baseBranch: String,
+        val deleteBranch: Boolean,
+        val strategy: MergeStrategy,
+    )
 
     data class Snapshot(
         val trunk: Path?,
@@ -143,19 +174,125 @@ class WorkspaceService(private val project: Project) {
         return result
     }
 
-    fun finish(
+    fun finish(req: FinishRequest): FinishResult {
+        val workspace = req.workspace
+        if (Git.isDirty(workspace.location)) {
+            val files = Git.statusPorcelain(workspace.location).stdout.lines()
+                .filter { it.isNotBlank() }
+            return FinishResult.Dirty(files)
+        }
+
+        val settings = ConductorSettings.get(project)
+        if (req.runFinishCommand && settings.finishCommand.isNotBlank()) {
+            val exit = runFinishCommandSync(
+                cwd = workspace.location,
+                command = settings.finishCommand,
+                tabTitle = "Conductor finish: ${workspace.branch}",
+            )
+            if (exit != 0) {
+                return FinishResult.Error(
+                    "Finish command exited with code $exit — workspace preserved. " +
+                        "See the Run tool window for output.",
+                )
+            }
+        }
+
+        var prOutcome: FinishResult? = null
+        if (req.openPr) {
+            prOutcome = openPullRequest(workspace, req.prTitle, req.prBody)
+            when (prOutcome) {
+                is FinishResult.PrCreateFailed -> return prOutcome
+                is FinishResult.PrOpened, null -> Unit
+                else -> return prOutcome
+            }
+        }
+
+        if (req.mergeLocally) {
+            val mergeResult = provider.finish(
+                project,
+                workspace,
+                req.strategy,
+                req.baseBranch,
+                req.deleteBranch,
+            )
+            if (mergeResult is FinishResult.Ok) invalidate()
+            return mergeResult
+        }
+
+        return prOutcome ?: FinishResult.Ok(
+            "Workspace `${workspace.branch}` preserved.",
+        )
+    }
+
+    private fun openPullRequest(
         workspace: Workspace,
-        strategy: MergeStrategy,
-        baseBranch: String,
-        deleteBranch: Boolean,
+        title: String,
+        body: String,
     ): FinishResult {
-        val result = provider.finish(project, workspace, strategy, baseBranch, deleteBranch)
-        if (result is FinishResult.Ok) invalidate()
-        return result
+        val trunkPath = trunk() ?: return FinishResult.PrCreateFailed(
+            "Could not locate trunk repository to determine forge.",
+        )
+        val forge = ForgeDetector.detect(trunkPath)
+        val client = PrClientFactory.forForge(project, forge)
+            ?: return FinishResult.PrCreateFailed(
+                "No forge detected for origin remote — cannot open PR.",
+            )
+        val base = Git.detectDefaultBranch(trunkPath)
+        val resolvedTitle = title.ifBlank { workspace.branch }
+        return when (val r = client.create(
+            cwd = workspace.location,
+            head = workspace.branch,
+            base = base,
+            title = resolvedTitle,
+            body = body,
+        )) {
+            is PrOutcome.Ok -> {
+                val now = Instant.now().toString()
+                val state = ConductorMarker.PrState(
+                    forge = forge.id,
+                    number = r.value.number,
+                    url = r.value.url,
+                    baseBranch = base,
+                    headBranch = workspace.branch,
+                    state = "open",
+                    lastCheckedAt = now,
+                    mergedAt = null,
+                )
+                try {
+                    ConductorMarker.writePrState(workspace.location, state)
+                } catch (e: Throwable) {
+                    log.warn("Failed to write PR state to marker", e)
+                }
+                invalidate()
+                FinishResult.PrOpened(url = r.value.url, number = r.value.number, awaitingMerge = true)
+            }
+            is PrOutcome.Err -> FinishResult.PrCreateFailed(r.message)
+        }
+    }
+
+    private fun runFinishCommandSync(cwd: Path, command: String, tabTitle: String): Int {
+        val latch = java.util.concurrent.CountDownLatch(1)
+        val exit = java.util.concurrent.atomic.AtomicInteger(-1)
+        FinishCommandRunner.run(project, cwd, command, tabTitle) { code ->
+            exit.set(code)
+            latch.countDown()
+        }
+        latch.await()
+        return exit.get()
     }
 
     fun discard(workspace: Workspace): FinishResult {
         val result = provider.discard(project, workspace)
+        if (result is FinishResult.Ok) invalidate()
+        return result
+    }
+
+    /**
+     * Teardown without merging. Used by the PR watcher when a tracked PR
+     * merges remotely and auto-reap is enabled.
+     */
+    fun reap(workspace: Workspace, deleteBranch: Boolean): FinishResult {
+        val result = provider.reap(project, workspace, deleteBranch)
         if (result is FinishResult.Ok) invalidate()
         return result
     }

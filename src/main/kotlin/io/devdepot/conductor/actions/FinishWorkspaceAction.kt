@@ -8,10 +8,11 @@ import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
+import io.devdepot.conductor.forge.Forge
+import io.devdepot.conductor.forge.ForgeDetector
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
-import io.devdepot.conductor.startup.FinishCommandRunner
 import io.devdepot.conductor.ui.FinishWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.ConductorMarker
@@ -27,7 +28,7 @@ class FinishWorkspaceAction : AnAction() {
         val enabled = project != null && ActionContext.isWorkspace(project)
         e.presentation.isEnabled = enabled
         e.presentation.description = if (enabled) {
-            "Merge, rebase, squash, or discard the current AI workspace."
+            "Run finish command, open a PR, and optionally merge locally."
         } else {
             "Only available from inside an AI Workspace."
         }
@@ -73,14 +74,36 @@ class FinishWorkspaceAction : AnAction() {
                 }
                 val defaultBase = Git.detectDefaultBranch(repo)
                 val branches = Git.listLocalBranches(repo).ifEmpty { listOf(defaultBase) }
+                val forge = ForgeDetector.detect(repo)
 
                 val snapshot = ConductorMarker.readConfig(workspace.location)
                 val defaultStrategy = snapshot?.defaultMergeStrategy
+                    ?.takeIf { it.isNotBlank() }
                     ?.let { MergeStrategy.fromId(it) }
                     ?: settings.defaultMergeStrategy
 
+                val defaultPrTitle = Git.exec(
+                    listOf("log", "-1", "--format=%s", workspace.branch),
+                    workspace.location,
+                ).stdout.ifBlank { workspace.branch }
+                val bodyResult = Git.exec(
+                    listOf("log", "$defaultBase..${workspace.branch}", "--format=- %s"),
+                    workspace.location,
+                )
+                val defaultPrBody = if (bodyResult.ok) bodyResult.stdout else ""
+
                 ApplicationManager.getApplication().invokeLater {
-                    showDialogAndFinish(project, service, workspace, defaultBase, branches, defaultStrategy)
+                    showDialogAndFinish(
+                        project = project,
+                        service = service,
+                        workspace = workspace,
+                        defaultBase = defaultBase,
+                        branches = branches,
+                        defaultStrategy = defaultStrategy,
+                        forge = forge,
+                        defaultPrTitle = defaultPrTitle,
+                        defaultPrBody = defaultPrBody,
+                    )
                 }
             }
         }.queue()
@@ -93,13 +116,25 @@ class FinishWorkspaceAction : AnAction() {
         defaultBase: String,
         branches: List<String>,
         defaultStrategy: MergeStrategy,
+        forge: Forge,
+        defaultPrTitle: String,
+        defaultPrBody: String,
     ) {
+        val settings = ConductorSettings.get(project)
+        val hasFinishCommand = settings.finishCommand.isNotBlank()
         val dialog = FinishWorkspaceDialog(
             project = project,
             branch = workspace.branch,
             defaultBase = defaultBase,
             branches = branches,
             defaultStrategy = defaultStrategy,
+            forge = forge,
+            hasFinishCommand = hasFinishCommand,
+            defaultRunFinishCommand = hasFinishCommand,
+            defaultOpenPr = settings.createPrOnFinish && forge != Forge.NONE,
+            defaultMergeLocally = settings.localFinishEnabled,
+            defaultPrTitle = defaultPrTitle,
+            defaultPrBody = defaultPrBody,
         )
         if (!dialog.showAndGet()) return
 
@@ -124,49 +159,41 @@ class FinishWorkspaceAction : AnAction() {
             return
         }
 
-        val strategy = dialog.strategy
-        val baseBranch = dialog.baseBranch
-        val deleteBranch = dialog.deleteBranch
-        val finishCommand = ConductorSettings.get(project).finishCommand
-
-        if (finishCommand.isBlank()) {
-            queueMerge(project, service, workspace, strategy, baseBranch, deleteBranch)
-            return
-        }
-
-        FinishCommandRunner.run(
-            project = project,
-            cwd = workspace.location,
-            command = finishCommand,
-            tabTitle = "Conductor finish: ${workspace.branch}",
-        ) { exit ->
-            if (exit == 0) {
-                queueMerge(project, service, workspace, strategy, baseBranch, deleteBranch)
-            } else {
-                Notifications.error(
-                    project,
-                    "Conductor",
-                    "Finish command exited with code $exit — workspace preserved. " +
-                        "See the Run tool window for output.",
-                )
-            }
-        }
+        val request = WorkspaceService.FinishRequest(
+            workspace = workspace,
+            runFinishCommand = dialog.runFinishCommand,
+            openPr = dialog.openPr,
+            prTitle = dialog.prTitle,
+            prBody = dialog.prBody,
+            mergeLocally = dialog.mergeLocally,
+            baseBranch = dialog.baseBranch,
+            deleteBranch = dialog.deleteBranch,
+            strategy = dialog.strategy,
+        )
+        queueFinish(project, service, request)
     }
 
-    private fun queueMerge(
+    private fun queueFinish(
         project: Project,
         service: WorkspaceService,
-        workspace: Workspace,
-        strategy: MergeStrategy,
-        baseBranch: String,
-        deleteBranch: Boolean,
+        request: WorkspaceService.FinishRequest,
     ) {
         object : Task.Backgroundable(project, "Finishing AI Workspace", false) {
             override fun run(indicator: ProgressIndicator) {
-                indicator.text = "Merging ${workspace.branch} → $baseBranch (${strategy.label})"
-                when (val r = service.finish(workspace, strategy, baseBranch, deleteBranch)) {
+                indicator.text = "Finishing ${request.workspace.branch}"
+                when (val r = service.finish(request)) {
                     is WorkspaceService.FinishResult.Ok ->
                         Notifications.info(project, "Conductor", r.message)
+                    is WorkspaceService.FinishResult.PrOpened -> {
+                        val suffix = if (r.awaitingMerge) " Workspace will be reaped on merge." else ""
+                        Notifications.info(
+                            project,
+                            "Conductor",
+                            "Opened PR #${r.number}: ${r.url}.$suffix",
+                        )
+                    }
+                    is WorkspaceService.FinishResult.PrCreateFailed ->
+                        Notifications.error(project, "Conductor", r.message)
                     is WorkspaceService.FinishResult.Dirty ->
                         Notifications.error(
                             project,
