@@ -5,6 +5,21 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.6] - 2026-04-19
+
+- `Finish AI Workspace` now runs `git push --set-upstream origin <branch>`
+  before invoking `gh pr create`, fixing `Head ref must be a branch` /
+  `No commits between <base> and <head>` failures when the branch
+  hadn't been published yet.
+- New **Conductor finish** tab in the Run tool window: each git and
+  forge-CLI command executed during Finish (push, PR create, checkout,
+  merge, rebase, squash, worktree remove, branch delete) streams its
+  command line, stdout, stderr, and exit code so failures are visible
+  in full instead of in a truncated balloon notification.
+- Release workflow: bump `actions/checkout`, `actions/upload-artifact`,
+  `softprops/action-gh-release`, and `peaceiris/actions-gh-pages` to
+  Node 24-compatible majors.
+
 ## [0.1.5] - 2026-04-19
 
 - Tool window list now bolds the workspace name and appends a green

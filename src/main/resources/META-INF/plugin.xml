@@ -28,6 +28,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.1.6</h4>
+<ul>
+  <li><b>Finish</b> now pushes the workspace branch to <code>origin</code> before calling <code>gh pr create</code>, fixing "Head ref must be a branch" failures when the branch hadn't been published yet.</li>
+  <li>Each git and forge-CLI command run during Finish (push, PR create, checkout, merge, rebase, squash, worktree remove, branch delete) streams into a <b>Conductor finish</b> tab in the Run tool window with its command line, stdout, stderr, and exit code — errors now surface in full instead of in a truncated balloon.</li>
+  <li>Release workflow: bumped <code>actions/checkout</code>, <code>actions/upload-artifact</code>, <code>softprops/action-gh-release</code>, and <code>peaceiris/actions-gh-pages</code> to Node 24-compatible majors.</li>
+</ul>
+
 <h4>0.1.5</h4>
 <ul>
   <li>Tool window list now bolds the workspace name and shows a green <b>● open</b> badge when a workspace has an IDE window open.</li>
