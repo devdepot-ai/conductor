@@ -28,6 +28,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.1.5</h4>
+<ul>
+  <li>Tool window list now bolds the workspace name and shows a green <b>● open</b> badge when a workspace has an IDE window open.</li>
+  <li><b>Finish AI Workspace</b> reshaped into publish-and-reap: opens a PR on GitHub or Bitbucket (with a new <code>PrWatcher</code> that reaps merged workspaces), with optional local merge.</li>
+  <li>Right-click in the tool window now selects the target row before showing the context menu.</li>
+  <li>New <b>Open Without Startup Command</b> action in the tool window popup: opens a workspace without running its configured startup command (one-shot).</li>
+</ul>
+
 <h4>0.1.4</h4>
 <ul>
   <li>New <b>Conductor</b> tool window: trunk view lists all workspaces with right-click Open / Rename / Delete; workspace view shows current workspace details with right-click Rename.</li>

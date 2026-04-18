@@ -5,6 +5,18 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.5] - 2026-04-19
+
+- Tool window list now bolds the workspace name and appends a green
+  **● open** badge when a workspace has an IDE window open in the current
+  IDE process; list refreshes automatically as workspace windows open and
+  close.
+- `Finish AI Workspace` reshaped into publish-and-reap: opens a PR on
+  GitHub or Bitbucket and preserves the workspace until the PR merges; a
+  new `PrWatcher` polls tracked PRs and reaps merged workspaces. Local
+  merge is still available as an optional step.
+- Right-click in the tool window selects the target row before showing
+  the context menu, so menu actions operate on the intended workspace.
 - Tool window right-click menu: add **Open Without Startup Command** —
   opens the workspace without running its configured startup command
   (one-shot; terminal-on-start and ready notification still fire).
