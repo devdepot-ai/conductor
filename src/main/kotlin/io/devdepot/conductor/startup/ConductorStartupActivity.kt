@@ -8,6 +8,7 @@ import io.devdepot.conductor.ide.WorkspaceTerminalLauncher
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.ConductorMarker
+import io.devdepot.conductor.workspace.WorkspaceService
 import java.nio.file.Path
 
 class ConductorStartupActivity : ProjectActivity {
@@ -15,6 +16,8 @@ class ConductorStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         project.messageBus.connect()
             .subscribe(VirtualFileManager.VFS_CHANGES, WorkspaceMarkerListener())
+
+        WorkspaceService.get(project).warmCache()
 
         val basePath = project.basePath ?: return
         val root = Path.of(basePath)

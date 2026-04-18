@@ -15,6 +15,7 @@ import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
 import java.nio.file.Files
 import java.nio.file.Path
+import java.util.concurrent.atomic.AtomicBoolean
 
 @Service(Service.Level.PROJECT)
 class WorkspaceService(private val project: Project) {
@@ -33,6 +34,20 @@ class WorkspaceService(private val project: Project) {
         data class Error(val message: String) : FinishResult()
     }
 
+    data class Snapshot(
+        val trunk: Path?,
+        val workspaces: List<Workspace>,
+        val current: Workspace?,
+    ) {
+        companion object {
+            val EMPTY = Snapshot(null, emptyList(), null)
+        }
+    }
+
+    @Volatile private var snapshot: Snapshot = Snapshot.EMPTY
+    @Volatile private var snapshotAtMs: Long = 0L
+    private val refreshing = AtomicBoolean(false)
+
     fun projectPath(): Path? = project.basePath?.let { Path.of(it) }
 
     fun trunk(): Path? {
@@ -44,13 +59,62 @@ class WorkspaceService(private val project: Project) {
     /**
      * All Conductor workspaces for the current repo. Excludes the trunk itself.
      */
-    fun list(): List<Workspace> {
-        val repo = trunk() ?: return emptyList()
-        val entries = Git.listWorktrees(repo)
-        if (entries.isEmpty()) return emptyList()
-        val mainPath = repo.toAbsolutePath().normalize()
-        val currentProjectPath = projectPath()?.toAbsolutePath()?.normalize()
-        return entries.mapNotNull { e ->
+    fun list(): List<Workspace> = computeSnapshot().workspaces
+
+    fun current(): Workspace? = computeSnapshot().current
+
+    /**
+     * Cache-only view for callers running under a ReadAction (e.g. action
+     * `update`/`getChildren`), where spawning `git` synchronously would throw.
+     * Returns stale data if the cache is cold; schedules an async refresh.
+     */
+    fun cachedSnapshot(): Snapshot {
+        val now = System.currentTimeMillis()
+        if (now - snapshotAtMs > CACHE_TTL_MS) scheduleRefresh()
+        return snapshot
+    }
+
+    /**
+     * Drop the cached snapshot and kick off a refresh. Call after mutations
+     * (create/finish/discard) so the next menu open reflects the new state.
+     */
+    fun invalidate() {
+        snapshotAtMs = 0L
+        scheduleRefresh()
+    }
+
+    /**
+     * Eagerly populate the cache from a safe thread (e.g. startup activity).
+     */
+    fun warmCache() {
+        scheduleRefresh()
+    }
+
+    private fun scheduleRefresh() {
+        if (!refreshing.compareAndSet(false, true)) return
+        ApplicationManager.getApplication().executeOnPooledThread {
+            try {
+                val next = computeSnapshot()
+                snapshot = next
+                snapshotAtMs = System.currentTimeMillis()
+            } catch (t: Throwable) {
+                log.warn("WorkspaceService snapshot refresh failed", t)
+            } finally {
+                refreshing.set(false)
+            }
+        }
+    }
+
+    private fun computeSnapshot(): Snapshot {
+        val projectRoot = projectPath() ?: return Snapshot.EMPTY
+        if (!Git.isGitRepo(projectRoot)) return Snapshot.EMPTY
+        val trunkPath = if (Git.isWorktree(projectRoot)) Git.mainRepoRoot(projectRoot) else projectRoot
+        trunkPath ?: return Snapshot.EMPTY
+
+        val entries = Git.listWorktrees(trunkPath)
+        val mainPath = trunkPath.toAbsolutePath().normalize()
+        val currentProjectPath = projectRoot.toAbsolutePath().normalize()
+        val workspaces = entries.mapNotNull { e ->
             val ePath = e.path.toAbsolutePath().normalize()
             if (ePath == mainPath) return@mapNotNull null
             if (!ConductorMarker.isWorkspace(ePath)) return@mapNotNull null
@@ -60,15 +124,13 @@ class WorkspaceService(private val project: Project) {
                 name = name,
                 branch = branch,
                 path = ePath,
-                isCurrent = currentProjectPath != null && currentProjectPath == ePath,
+                isCurrent = currentProjectPath == ePath,
             )
         }
-    }
-
-    fun current(): Workspace? {
-        val p = projectPath()?.toAbsolutePath()?.normalize() ?: return null
-        if (!ConductorMarker.isWorkspace(p)) return null
-        return list().firstOrNull { it.path == p }
+        val current = if (ConductorMarker.isWorkspace(currentProjectPath)) {
+            workspaces.firstOrNull { it.path == currentProjectPath }
+        } else null
+        return Snapshot(trunkPath, workspaces, current)
     }
 
     fun defaultWorktreeRoot(): Path {
@@ -132,6 +194,7 @@ class WorkspaceService(private val project: Project) {
             project.service<ProjectOpener>().openInNewWindow(worktreePath)
         }
 
+        invalidate()
         val name = worktreePath.fileName?.toString() ?: slug
         val workspace = Workspace(name, branchName, worktreePath, isCurrent = false)
         return Result.Ok(workspace)
@@ -215,6 +278,7 @@ class WorkspaceService(private val project: Project) {
         }
 
         refreshMainRepoVcs(repo)
+        invalidate()
         return FinishResult.Ok("Finished `$branch` onto `$baseBranch` (${strategy.label}).")
     }
 
@@ -230,6 +294,7 @@ class WorkspaceService(private val project: Project) {
         }
         Git.branchDelete(repo, workspace.branch, force = true)
         refreshMainRepoVcs(repo)
+        invalidate()
         return FinishResult.Ok("Discarded `${workspace.branch}`.")
     }
 
@@ -284,6 +349,8 @@ class WorkspaceService(private val project: Project) {
     }
 
     companion object {
+        private const val CACHE_TTL_MS = 1500L
+
         fun get(project: Project): WorkspaceService = project.service()
     }
 }

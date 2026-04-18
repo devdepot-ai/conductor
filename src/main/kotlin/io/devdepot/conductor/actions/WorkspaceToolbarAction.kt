@@ -39,7 +39,7 @@ class WorkspaceToolbarAction : ActionGroup(), DumbAware {
             return
         }
 
-        val current = if (workspace) WorkspaceService.get(project!!).current() else null
+        val current = if (workspace) WorkspaceService.get(project!!).cachedSnapshot().current else null
         if (current != null) {
             presentation.text = current.branch
             presentation.icon = ConductorIcons.InWorkspace
@@ -65,14 +65,14 @@ class WorkspaceToolbarAction : ActionGroup(), DumbAware {
     override fun getChildren(e: AnActionEvent?): Array<AnAction> {
         val project = e?.project ?: return emptyArray()
         val mgr = ActionManager.getInstance()
-        val service = WorkspaceService.get(project)
-        val current = service.current()
+        val snap = WorkspaceService.get(project).cachedSnapshot()
+        val current = snap.current
         val children = mutableListOf<AnAction>()
 
         val primaryId = if (current != null) "Conductor.FinishWorkspace" else "Conductor.NewWorkspace"
         mgr.getAction(primaryId)?.let { children += it }
 
-        val others = service.list().filter { it.path != current?.path }
+        val others = snap.workspaces.filter { it.path != current?.path }
         if (others.isNotEmpty()) {
             children += Separator.getInstance()
             others.forEach { ws -> children += SwitchToWorkspaceAction(ws) }
