@@ -83,6 +83,7 @@
             <add-to-group group-id="VcsGroups" anchor="last"/>
             <action id="Conductor.NewWorkspace"
                     class="io.devdepot.conductor.actions.NewWorkspaceAction"
+                    icon="AllIcons.General.Add"
                     text="New AI Workspace"
                     description="Create a new AI workspace (git worktree + dedicated IDE window)."/>
             <action id="Conductor.ListWorkspaces"
@@ -91,6 +92,7 @@
                     description="Show all active AI workspaces and switch between them."/>
             <action id="Conductor.FinishWorkspace"
                     class="io.devdepot.conductor.actions.FinishWorkspaceAction"
+                    icon="AllIcons.General.GreenCheckmark"
                     text="Finish AI Workspace"
                     description="Merge, rebase, squash, or discard the current AI workspace."/>
             <separator/>

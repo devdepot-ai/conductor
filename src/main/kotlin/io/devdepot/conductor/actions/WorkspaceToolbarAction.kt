@@ -1,30 +1,23 @@
 package io.devdepot.conductor.actions
 
-import com.intellij.openapi.actionSystem.ActionGroup
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
-import com.intellij.openapi.actionSystem.Separator
 import com.intellij.openapi.project.DumbAware
 import io.devdepot.conductor.icons.ConductorIcons
 import io.devdepot.conductor.workspace.WorkspaceService
 
 /**
- * Main-toolbar split button.
+ * Main-toolbar button.
  *
- * Primary action flips based on state:
+ * Label and click target flip based on state:
  *   - Trunk window      → Create AI Workspace
  *   - Workspace window  → Finish AI Workspace (label shows the branch)
  *
- * The arrow reveals: primary action, active workspaces, Settings.
+ * Listing and switching live in the Conductor tool window.
  */
-class WorkspaceToolbarAction : ActionGroup(), DumbAware {
-
-    init {
-        isPopup = true
-        templatePresentation.isPerformGroup = true
-    }
+class WorkspaceToolbarAction : AnAction(), DumbAware {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 
@@ -42,7 +35,7 @@ class WorkspaceToolbarAction : ActionGroup(), DumbAware {
         val current = if (workspace) WorkspaceService.get(project!!).cachedSnapshot().current else null
         if (current != null) {
             presentation.text = current.branch
-            presentation.icon = ConductorIcons.InWorkspace
+            presentation.icon = ConductorIcons.Finish
             presentation.description = "Finish AI Workspace"
         } else {
             presentation.text = "AI Workspace"
@@ -60,26 +53,5 @@ class WorkspaceToolbarAction : ActionGroup(), DumbAware {
             "Conductor.NewWorkspace"
         }
         ActionManager.getInstance().getAction(actionId)?.actionPerformed(e)
-    }
-
-    override fun getChildren(e: AnActionEvent?): Array<AnAction> {
-        val project = e?.project ?: return emptyArray()
-        val mgr = ActionManager.getInstance()
-        val snap = WorkspaceService.get(project).cachedSnapshot()
-        val current = snap.current
-        val children = mutableListOf<AnAction>()
-
-        val primaryId = if (current != null) "Conductor.FinishWorkspace" else "Conductor.NewWorkspace"
-        mgr.getAction(primaryId)?.let { children += it }
-
-        val others = snap.workspaces.filter { it.location != current?.location }
-        if (others.isNotEmpty()) {
-            children += Separator.getInstance()
-            others.forEach { ws -> children += SwitchToWorkspaceAction(ws) }
-        }
-
-        children += Separator.getInstance()
-        mgr.getAction("Conductor.OpenSettings")?.let { children += it }
-        return children.toTypedArray()
     }
 }

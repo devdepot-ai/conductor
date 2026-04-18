@@ -1,54 +1,50 @@
 package io.devdepot.conductor.toolwindow.actions
 
-import com.intellij.openapi.actionSystem.ActionUpdateThread
-import com.intellij.openapi.actionSystem.AnAction
-import com.intellij.openapi.actionSystem.AnActionEvent
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
-import com.intellij.openapi.project.DumbAware
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
-import io.devdepot.conductor.icons.ConductorIcons
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 
 /**
- * Panel-local delete action. Confirms, then runs [WorkspaceService.discard]
- * (force-remove worktree + branch + close window + invalidate). Wording
- * mirrors [io.devdepot.conductor.actions.FinishWorkspaceAction]'s discard path
- * so the two entry points feel identical.
+ * Confirm-and-discard workspace deletion. Shared by the tool window row
+ * trash icon and any future entry points. Wording matches the discard path
+ * in [io.devdepot.conductor.actions.FinishWorkspaceAction] so both entry
+ * points feel identical.
  */
-class DeleteWorkspaceAction(
-    private val workspaceSupplier: () -> Workspace?,
-) : AnAction("Delete", "Discard this workspace and its branch", ConductorIcons.Delete), DumbAware {
+internal fun confirmAndDiscardWorkspace(project: Project, workspace: Workspace) {
+    confirmAndDiscardWorkspaces(project, listOf(workspace))
+}
 
-    override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
-
-    override fun update(e: AnActionEvent) {
-        e.presentation.isEnabled = e.project != null && workspaceSupplier() != null
+internal fun confirmAndDiscardWorkspaces(project: Project, workspaces: List<Workspace>) {
+    if (workspaces.isEmpty()) return
+    val message = if (workspaces.size == 1) {
+        "Discard `${workspaces.single().branch}`? This deletes the branch and workspace. Unmerged commits will be lost."
+    } else {
+        val list = workspaces.joinToString("\n") { "  • ${it.branch}" }
+        "Discard ${workspaces.size} workspaces? This deletes their branches and worktrees. Unmerged commits will be lost.\n\n$list"
     }
+    val ok = Messages.showYesNoDialog(
+        project,
+        message,
+        if (workspaces.size == 1) "Discard AI Workspace" else "Discard AI Workspaces",
+        Messages.getWarningIcon(),
+    )
+    if (ok != Messages.YES) return
 
-    override fun actionPerformed(e: AnActionEvent) {
-        val project = e.project ?: return
-        val workspace = workspaceSupplier() ?: return
-
-        val ok = Messages.showYesNoDialog(
-            project,
-            "Discard `${workspace.branch}`? This deletes the branch and workspace. Unmerged commits will be lost.",
-            "Discard AI Workspace",
-            Messages.getWarningIcon(),
-        )
-        if (ok != Messages.YES) return
-
-        val service = WorkspaceService.get(project)
-        object : Task.Backgroundable(project, "Discarding AI Workspace", false) {
-            override fun run(indicator: ProgressIndicator) {
-                when (val r = service.discard(workspace)) {
+    val service = WorkspaceService.get(project)
+    object : Task.Backgroundable(project, "Discarding AI Workspaces", false) {
+        override fun run(indicator: ProgressIndicator) {
+            workspaces.forEach { ws ->
+                indicator.text = "Discarding ${ws.branch}"
+                when (val r = service.discard(ws)) {
                     is WorkspaceService.FinishResult.Ok -> Notifications.info(project, "Conductor", r.message)
                     is WorkspaceService.FinishResult.Error -> Notifications.error(project, "Conductor", r.message)
                     else -> {}
                 }
             }
-        }.queue()
-    }
+        }
+    }.queue()
 }

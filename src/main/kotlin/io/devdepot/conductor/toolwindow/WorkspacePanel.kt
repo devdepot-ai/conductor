@@ -2,6 +2,8 @@ package io.devdepot.conductor.toolwindow
 
 import com.intellij.openapi.actionSystem.ActionManager
 import com.intellij.openapi.actionSystem.ActionPlaces
+import com.intellij.openapi.actionSystem.CommonDataKeys
+import com.intellij.openapi.actionSystem.DataProvider
 import com.intellij.openapi.actionSystem.DefaultActionGroup
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
@@ -24,7 +26,10 @@ import javax.swing.JPanel
 class WorkspacePanel(
     private val project: Project,
     private val toolWindow: ToolWindow,
-) : SimpleToolWindowPanel(true, true) {
+) : SimpleToolWindowPanel(true, true), DataProvider {
+
+    override fun getData(dataId: String): Any? =
+        if (CommonDataKeys.PROJECT.`is`(dataId)) project else null
 
     private val branchLabel = JBLabel()
     private val nameLabel = JBLabel()
