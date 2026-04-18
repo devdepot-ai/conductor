@@ -160,6 +160,27 @@ class WorkspaceService(private val project: Project) {
         return result
     }
 
+    /**
+     * Rewrite the workspace's marker file with [newName] stored in the
+     * `name` field. The marker is treated as the source of truth for the
+     * display name, so the next snapshot refresh reflects the change.
+     */
+    fun rename(workspace: Workspace, newName: String): Result {
+        val trimmed = newName.trim()
+        if (trimmed.isBlank()) return Result.Error("Workspace name cannot be blank.")
+        if (trimmed == workspace.name) return Result.Ok(workspace)
+        val location = workspace.location
+        val existing = ConductorMarker.readConfig(location)
+            ?: return Result.Error("Workspace marker not found at $location.")
+        return try {
+            ConductorMarker.writeConfig(location, existing.copy(name = trimmed))
+            invalidate()
+            Result.Ok(workspace)
+        } catch (e: Exception) {
+            Result.Error("Failed to rename workspace: ${e.message}")
+        }
+    }
+
     companion object {
         private const val CACHE_TTL_MS = 1500L
 

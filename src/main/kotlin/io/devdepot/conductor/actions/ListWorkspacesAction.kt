@@ -56,7 +56,8 @@ class ListWorkspacesAction : AnAction() {
         val step = object : BaseListPopupStep<Workspace>("AI Workspaces", workspaces) {
             override fun getTextFor(w: Workspace): String {
                 val suffix = if (w.isCurrent) "    ← current" else ""
-                return "${w.branch}    ${w.location}$suffix"
+                val branchPart = if (w.name != w.branch) "  ${w.branch}" else ""
+                return "${w.name}$branchPart    ${w.location}$suffix"
             }
 
             override fun getDefaultOptionIndex(): Int =

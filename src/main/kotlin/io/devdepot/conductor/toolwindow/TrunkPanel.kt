@@ -27,6 +27,7 @@ import io.devdepot.conductor.actions.openWorkspace
 import io.devdepot.conductor.icons.ConductorIcons
 import io.devdepot.conductor.toolwindow.actions.RefreshWorkspacesAction
 import io.devdepot.conductor.toolwindow.actions.confirmAndDiscardWorkspaces
+import io.devdepot.conductor.toolwindow.actions.promptAndRenameWorkspace
 import io.devdepot.conductor.util.RelativeTime
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
@@ -71,6 +72,7 @@ class TrunkPanel(
 
         val popup = DefaultActionGroup().apply {
             add(OpenSelectedAction())
+            add(RenameSelectedAction())
             add(DeleteSelectedAction())
         }
         PopupHandler.installPopupMenu(list, popup, ActionPlaces.TOOLWINDOW_POPUP)
@@ -124,6 +126,20 @@ class TrunkPanel(
         }
     }
 
+    private inner class RenameSelectedAction :
+        AnAction("Rename\u2026", "Rename this workspace", null) {
+        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = selectedWorkspaces().size == 1
+        }
+
+        override fun actionPerformed(e: AnActionEvent) {
+            val only = selectedWorkspaces().singleOrNull() ?: return
+            promptAndRenameWorkspace(project, only)
+        }
+    }
+
     private inner class DeleteSelectedAction :
         AnAction("Delete", "Discard the selected workspace(s) and their branches", ConductorIcons.Delete) {
         override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
@@ -150,7 +166,10 @@ class TrunkPanel(
             hasFocus: Boolean,
         ) {
             icon = ConductorIcons.InWorkspace
-            append(value.branch, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            append(value.name, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            if (value.name != value.branch) {
+                append("  ${value.branch}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            }
             if (value.isCurrent) {
                 append("  current", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             }
