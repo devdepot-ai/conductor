@@ -41,6 +41,11 @@
                     class="io.devdepot.conductor.actions.FinishWorkspaceAction"
                     text="Finish AI Workspace"
                     description="Merge, rebase, squash, or discard the current AI workspace."/>
+            <separator/>
+            <action id="Conductor.OpenSettings"
+                    class="io.devdepot.conductor.actions.OpenSettingsAction"
+                    text="Settings..."
+                    description="Open the Conductor settings page."/>
         </group>
     </actions>
 </idea-plugin>
