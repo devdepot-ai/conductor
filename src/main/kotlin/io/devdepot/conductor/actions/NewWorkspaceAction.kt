@@ -3,6 +3,7 @@ package io.devdepot.conductor.actions
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
@@ -11,7 +12,6 @@ import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.ui.NewWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.WorkspaceService
-import java.nio.file.Path
 
 class NewWorkspaceAction : AnAction() {
 
@@ -30,21 +30,39 @@ class NewWorkspaceAction : AnAction() {
 
     override fun actionPerformed(e: AnActionEvent) {
         val project = e.project ?: return
-        if (!isGitDir(project)) {
-            Notifications.warn(project, "Conductor", "Conductor requires a git repository.")
-            return
-        }
         val service = WorkspaceService.get(project)
         val settings = ConductorSettings.get(project)
-        val trunk = service.trunk() ?: run {
-            Notifications.error(project, "Conductor", "Could not locate the trunk repository.")
-            return
-        }
 
-        val defaultBase = Git.detectDefaultBranch(trunk)
-        val branches = Git.listLocalBranches(trunk)
-        val defaultName = Git.generateBranchName(settings.branchPrefix)
+        object : Task.Backgroundable(project, "Preparing AI Workspace…", false) {
+            override fun run(indicator: ProgressIndicator) {
+                val trunk = service.trunk() ?: run {
+                    ApplicationManager.getApplication().invokeLater {
+                        Notifications.error(
+                            project,
+                            "Conductor",
+                            "Could not locate the trunk repository.",
+                        )
+                    }
+                    return
+                }
+                val defaultBase = Git.detectDefaultBranch(trunk)
+                val branches = Git.listLocalBranches(trunk)
+                val defaultName = Git.generateBranchName(settings.branchPrefix)
 
+                ApplicationManager.getApplication().invokeLater {
+                    showDialogAndCreate(project, service, defaultName, defaultBase, branches)
+                }
+            }
+        }.queue()
+    }
+
+    private fun showDialogAndCreate(
+        project: Project,
+        service: WorkspaceService,
+        defaultName: String,
+        defaultBase: String,
+        branches: List<String>,
+    ) {
         val dialog = NewWorkspaceDialog(project, defaultName, defaultBase, branches)
         if (!dialog.showAndGet()) return
 
@@ -69,10 +87,5 @@ class NewWorkspaceAction : AnAction() {
                 }
             }
         }.queue()
-    }
-
-    private fun isGitDir(project: Project): Boolean {
-        val base = project.basePath ?: return false
-        return Git.isGitRepo(Path.of(base))
     }
 }

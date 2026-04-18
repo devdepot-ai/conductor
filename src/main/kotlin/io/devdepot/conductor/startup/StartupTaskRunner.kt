@@ -13,6 +13,8 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.wm.ToolWindowId
+import com.intellij.openapi.wm.ToolWindowManager
 import io.devdepot.conductor.ui.Notifications
 import java.nio.file.Path
 
@@ -34,57 +36,66 @@ object StartupTaskRunner {
             return
         }
 
-        val console = TextConsoleBuilderFactory.getInstance()
-            .createBuilder(project)
-            .console
-        console.attachToProcess(handler)
+        val done = java.util.concurrent.CountDownLatch(1)
+        val exitRef = java.util.concurrent.atomic.AtomicInteger(-1)
+        handler.addProcessListener(object : ProcessAdapter() {
+            override fun processTerminated(event: ProcessEvent) {
+                exitRef.set(event.exitCode)
+                done.countDown()
+            }
+        })
 
-        val descriptor = RunContentDescriptor(
-            console,
-            handler,
-            console.component,
-            "Conductor startup",
-        )
         ApplicationManager.getApplication().invokeLater {
+            val console = TextConsoleBuilderFactory.getInstance()
+                .createBuilder(project)
+                .console
+            console.attachToProcess(handler)
+            val descriptor = RunContentDescriptor(
+                console,
+                handler,
+                console.component,
+                "Conductor startup",
+            )
             RunContentManager.getInstance(project)
                 .showRunContent(DefaultRunExecutor.getRunExecutorInstance(), descriptor)
+            ToolWindowManager.getInstance(project)
+                .getToolWindow(ToolWindowId.RUN)
+                ?.activate(null, false)
+            handler.startNotify()
+
+            Notifications.info(
+                project,
+                "Conductor",
+                "Startup command running — see the Run tool window (tab: \"Conductor startup\").",
+            )
+
+            object : Task.Backgroundable(project, "Conductor: running workspace startup", true) {
+                override fun run(indicator: ProgressIndicator) {
+                    indicator.isIndeterminate = true
+                    while (!done.await(200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
+                        if (indicator.isCanceled) {
+                            handler.destroyProcess()
+                            return
+                        }
+                    }
+                    val exit = exitRef.get()
+                    ApplicationManager.getApplication().invokeLater {
+                        if (exit == 0) {
+                            Notifications.info(project, "Conductor", "Startup command finished.")
+                        } else {
+                            Notifications.warn(
+                                project,
+                                "Conductor",
+                                "Startup command exited with code $exit (see Run tool window).",
+                            )
+                        }
+                    }
+                }
+
+                override fun onCancel() {
+                    if (!handler.isProcessTerminated) handler.destroyProcess()
+                }
+            }.queue()
         }
-
-        object : Task.Backgroundable(project, "Conductor: running workspace startup", true) {
-            override fun run(indicator: ProgressIndicator) {
-                indicator.isIndeterminate = true
-                val done = java.util.concurrent.CountDownLatch(1)
-                val exitRef = java.util.concurrent.atomic.AtomicInteger(-1)
-                handler.addProcessListener(object : ProcessAdapter() {
-                    override fun processTerminated(event: ProcessEvent) {
-                        exitRef.set(event.exitCode)
-                        done.countDown()
-                    }
-                })
-                handler.startNotify()
-                while (!done.await(200, java.util.concurrent.TimeUnit.MILLISECONDS)) {
-                    if (indicator.isCanceled) {
-                        handler.destroyProcess()
-                        return
-                    }
-                }
-                val exit = exitRef.get()
-                ApplicationManager.getApplication().invokeLater {
-                    if (exit == 0) {
-                        Notifications.info(project, "Conductor", "Startup command finished.")
-                    } else {
-                        Notifications.warn(
-                            project,
-                            "Conductor",
-                            "Startup command exited with code $exit (see Run tool window).",
-                        )
-                    }
-                }
-            }
-
-            override fun onCancel() {
-                if (!handler.isProcessTerminated) handler.destroyProcess()
-            }
-        }.queue()
     }
 }

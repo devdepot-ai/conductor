@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.TextFieldWithBrowseButton
 import com.intellij.ui.components.JBCheckBox
 import com.intellij.ui.components.JBTextField
+import com.intellij.ui.dsl.builder.AlignX
 import com.intellij.ui.dsl.builder.panel
 import io.devdepot.conductor.workspace.ConductorMarker
 import java.nio.file.Path
@@ -45,6 +46,8 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         val panel = panel {
             row("Startup command:") {
                 cell(startupCommandField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
                     .comment(
                         "Runs in the background as an IDE task when the workspace opens. " +
                             "Shown as a status-bar progress item; click to view output.",
@@ -56,10 +59,12 @@ class ConductorConfigurable(private val project: Project) : Configurable {
             }
             row("Worktree root:") {
                 cell(worktreeRootField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
                     .comment("Blank = a sibling folder named [repo-name]-worktrees/ next to the main repo.")
             }
             row("Default merge strategy:") {
-                cell(strategyBox)
+                cell(strategyBox).align(AlignX.FILL)
             }
         }
         rootPanel = panel
@@ -84,13 +89,16 @@ class ConductorConfigurable(private val project: Project) : Configurable {
                 )
             }
             row("Startup command:") {
-                cell(startupCommandField).enabled(false)
+                cell(startupCommandField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
+                    .enabled(false)
             }
             row("") {
                 cell(openTerminalCheckbox).enabled(false)
             }
             row("Default merge strategy:") {
-                cell(strategyBox).enabled(false)
+                cell(strategyBox).align(AlignX.FILL).enabled(false)
             }
         }
         rootPanel = panel

@@ -3,8 +3,10 @@ package io.devdepot.conductor.actions
 import com.intellij.openapi.actionSystem.ActionUpdateThread
 import com.intellij.openapi.actionSystem.AnAction
 import com.intellij.openapi.actionSystem.AnActionEvent
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
+import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.Messages
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
@@ -12,6 +14,7 @@ import io.devdepot.conductor.settings.MergeStrategy
 import io.devdepot.conductor.ui.FinishWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.ConductorMarker
+import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 
 class FinishWorkspaceAction : AnAction() {
@@ -20,9 +23,7 @@ class FinishWorkspaceAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val enabled = project != null &&
-            ActionContext.isWorkspace(project) &&
-            WorkspaceService.get(project).current() != null
+        val enabled = project != null && ActionContext.isWorkspace(project)
         e.presentation.isEnabled = enabled
         e.presentation.description = if (enabled) {
             "Merge, rebase, squash, or discard the current AI workspace."
@@ -35,36 +36,63 @@ class FinishWorkspaceAction : AnAction() {
         val project = e.project ?: return
         val service = WorkspaceService.get(project)
         val settings = ConductorSettings.get(project)
-        val workspace = service.current() ?: run {
-            Notifications.warn(project, "Conductor", "Finish AI Workspace must be run from inside a Conductor worktree.")
-            return
-        }
 
-        // J3 step 2: hard-error on dirty.
-        if (Git.isDirty(workspace.path)) {
-            val files = Git.statusPorcelain(workspace.path).stdout.lines()
-                .filter { it.isNotBlank() }
-                .joinToString("\n")
-            Notifications.error(
-                project,
-                "Conductor — worktree is dirty",
-                "Commit or stash first. Changed files:\n$files",
-            )
-            return
-        }
+        object : Task.Backgroundable(project, "Preparing to finish workspace…", false) {
+            override fun run(indicator: ProgressIndicator) {
+                val workspace = service.current() ?: run {
+                    ApplicationManager.getApplication().invokeLater {
+                        Notifications.warn(
+                            project,
+                            "Conductor",
+                            "Finish AI Workspace must be run from inside a Conductor workspace.",
+                        )
+                    }
+                    return
+                }
 
-        val repo = Git.mainRepoRoot(workspace.path) ?: run {
-            Notifications.error(project, "Conductor", "Could not locate main repository.")
-            return
-        }
-        val defaultBase = Git.detectDefaultBranch(repo)
-        val branches = Git.listLocalBranches(repo).ifEmpty { listOf(defaultBase) }
+                if (Git.isDirty(workspace.path)) {
+                    val files = Git.statusPorcelain(workspace.path).stdout.lines()
+                        .filter { it.isNotBlank() }
+                        .joinToString("\n")
+                    ApplicationManager.getApplication().invokeLater {
+                        Notifications.error(
+                            project,
+                            "Conductor — workspace is dirty",
+                            "Commit or stash first. Changed files:\n$files",
+                        )
+                    }
+                    return
+                }
 
-        val snapshot = ConductorMarker.readConfig(workspace.path)
-        val defaultStrategy = snapshot?.defaultMergeStrategy
-            ?.let { MergeStrategy.fromId(it) }
-            ?: settings.defaultMergeStrategy
+                val repo = Git.mainRepoRoot(workspace.path) ?: run {
+                    ApplicationManager.getApplication().invokeLater {
+                        Notifications.error(project, "Conductor", "Could not locate trunk repository.")
+                    }
+                    return
+                }
+                val defaultBase = Git.detectDefaultBranch(repo)
+                val branches = Git.listLocalBranches(repo).ifEmpty { listOf(defaultBase) }
 
+                val snapshot = ConductorMarker.readConfig(workspace.path)
+                val defaultStrategy = snapshot?.defaultMergeStrategy
+                    ?.let { MergeStrategy.fromId(it) }
+                    ?: settings.defaultMergeStrategy
+
+                ApplicationManager.getApplication().invokeLater {
+                    showDialogAndFinish(project, service, workspace, defaultBase, branches, defaultStrategy)
+                }
+            }
+        }.queue()
+    }
+
+    private fun showDialogAndFinish(
+        project: Project,
+        service: WorkspaceService,
+        workspace: Workspace,
+        defaultBase: String,
+        branches: List<String>,
+        defaultStrategy: MergeStrategy,
+    ) {
         val dialog = FinishWorkspaceDialog(
             project = project,
             branch = workspace.branch,
@@ -77,7 +105,7 @@ class FinishWorkspaceAction : AnAction() {
         if (dialog.discard) {
             val ok = Messages.showYesNoDialog(
                 project,
-                "Discard `${workspace.branch}`? This deletes the branch and worktree. Unmerged commits will be lost.",
+                "Discard `${workspace.branch}`? This deletes the branch and workspace. Unmerged commits will be lost.",
                 "Discard AI Workspace",
                 Messages.getWarningIcon(),
             )
@@ -108,7 +136,7 @@ class FinishWorkspaceAction : AnAction() {
                     is WorkspaceService.FinishResult.Dirty ->
                         Notifications.error(
                             project,
-                            "Conductor — worktree is dirty",
+                            "Conductor — workspace is dirty",
                             "Commit or stash first. Changed files:\n${r.files.joinToString("\n")}",
                         )
                     is WorkspaceService.FinishResult.Conflict ->
