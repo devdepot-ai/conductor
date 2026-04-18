@@ -4,7 +4,7 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowManager
-import javax.swing.JComponent
+import com.intellij.terminal.ui.TerminalWidget
 import javax.swing.SwingUtilities
 import org.jetbrains.plugins.terminal.TerminalToolWindowManager
 
@@ -15,7 +15,7 @@ object WorkspaceTerminalLauncher {
         ApplicationManager.getApplication().invokeLater {
             try {
                 val manager = TerminalToolWindowManager.getInstance(project)
-                val widget: JComponent = manager.createShellWidget(project.basePath, tabName, true, true)
+                val widget = manager.createShellWidget(project.basePath, tabName, true, true)
                 pinContent(project, widget)
             } catch (e: Throwable) {
                 log.warn("Failed to launch terminal for $tabName", e)
@@ -23,12 +23,13 @@ object WorkspaceTerminalLauncher {
         }
     }
 
-    private fun pinContent(project: Project, widget: JComponent) {
+    private fun pinContent(project: Project, widget: TerminalWidget) {
         val contentManager = ToolWindowManager.getInstance(project)
             .getToolWindow("Terminal")
             ?.contentManager ?: return
+        val widgetComponent = widget.component
         val content = contentManager.contents.firstOrNull { c ->
-            SwingUtilities.isDescendingFrom(widget, c.component)
+            SwingUtilities.isDescendingFrom(widgetComponent, c.component)
         } ?: contentManager.selectedContent
         content?.isPinned = true
     }
