@@ -198,12 +198,19 @@ class TrunkPanel(
             hasFocus: Boolean,
         ) {
             icon = ConductorIcons.InWorkspace
-            append(value.name, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+            val nameAttrs = if (value.isOpen) {
+                SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+            } else {
+                SimpleTextAttributes.REGULAR_ATTRIBUTES
+            }
+            append(value.name, nameAttrs)
             if (value.name != value.branch) {
                 append("  ${value.branch}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             }
             if (value.isCurrent) {
                 append("  current", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            } else if (value.isOpen) {
+                append("  ● open", OPEN_ATTRIBUTES)
             }
             val pr = io.devdepot.conductor.workspace.ConductorMarker.readConfig(value.location)?.pr
             if (pr != null) {
@@ -214,6 +221,13 @@ class TrunkPanel(
                 SimpleTextAttributes.GRAYED_ATTRIBUTES,
             )
             ipad = JBUI.insets(4, 6)
+        }
+
+        companion object {
+            private val OPEN_ATTRIBUTES = SimpleTextAttributes(
+                SimpleTextAttributes.STYLE_PLAIN,
+                com.intellij.ui.JBColor(0x2E7D32, 0x7BC67B),
+            )
         }
     }
 }

@@ -3,11 +3,14 @@ package io.devdepot.conductor.toolwindow
 import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.project.DumbAware
 import com.intellij.openapi.project.Project
+import com.intellij.openapi.project.ProjectManager
+import com.intellij.openapi.project.ProjectManagerListener
 import com.intellij.openapi.wm.ToolWindow
 import com.intellij.openapi.wm.ToolWindowFactory
 import com.intellij.ui.content.ContentFactory
 import io.devdepot.conductor.actions.ActionContext
 import io.devdepot.conductor.workspace.WorkspaceChangeNotifier
+import io.devdepot.conductor.workspace.WorkspaceService
 import io.devdepot.conductor.workspace.WorkspaceTopics
 import javax.swing.JComponent
 
@@ -32,6 +35,21 @@ class ConductorToolWindowFactory : ToolWindowFactory, DumbAware {
                     if (project.isDisposed) return@invokeLater
                     holder.syncWithMode(mode)
                 }, project.disposed)
+            },
+        )
+        @Suppress("OVERRIDE_DEPRECATION")
+        connection.subscribe(
+            ProjectManager.TOPIC,
+            object : ProjectManagerListener {
+                override fun projectOpened(opened: Project) {
+                    if (opened === project || project.isDisposed) return
+                    WorkspaceService.get(project).invalidate()
+                }
+
+                override fun projectClosed(closed: Project) {
+                    if (closed === project || project.isDisposed) return
+                    WorkspaceService.get(project).invalidate()
+                }
             },
         )
     }

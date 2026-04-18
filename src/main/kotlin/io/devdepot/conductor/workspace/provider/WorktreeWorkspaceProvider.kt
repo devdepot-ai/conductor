@@ -36,6 +36,9 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         val entries = Git.listWorktrees(trunk)
         val mainPath = trunk.toAbsolutePath().normalize()
         val currentProjectPath = project.basePath?.let { Path.of(it).toAbsolutePath().normalize() }
+        val openProjectPaths = ProjectManager.getInstance().openProjects
+            .mapNotNull { it.basePath?.let { p -> Path.of(p).toAbsolutePath().normalize() } }
+            .toSet()
         return entries.mapNotNull { e ->
             val ePath = e.path.toAbsolutePath().normalize()
             if (ePath == mainPath) return@mapNotNull null
@@ -51,6 +54,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                 isCurrent = currentProjectPath == ePath,
                 worktreePath = ePath,
                 createdAt = resolveCreatedAt(ePath, config?.createdAt),
+                isOpen = ePath in openProjectPaths,
             )
         }
     }
