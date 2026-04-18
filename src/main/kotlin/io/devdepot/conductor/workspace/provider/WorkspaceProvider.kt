@@ -2,6 +2,7 @@ package io.devdepot.conductor.workspace.provider
 
 import com.intellij.openapi.project.Project
 import io.devdepot.conductor.settings.MergeStrategy
+import io.devdepot.conductor.workspace.FinishLog
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 import java.nio.file.Path
@@ -36,6 +37,7 @@ interface WorkspaceProvider {
         strategy: MergeStrategy,
         baseBranch: String,
         deleteBranch: Boolean,
+        log: FinishLog? = null,
     ): WorkspaceService.FinishResult
 
     fun discard(project: Project, workspace: Workspace): WorkspaceService.FinishResult

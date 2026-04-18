@@ -197,37 +197,61 @@ class WorkspaceService(private val project: Project) {
             }
         }
 
-        var prOutcome: FinishResult? = null
-        if (req.openPr) {
-            prOutcome = openPullRequest(workspace, req.prTitle, req.prBody)
-            when (prOutcome) {
-                is FinishResult.PrCreateFailed -> return prOutcome
-                is FinishResult.PrOpened, null -> Unit
-                else -> return prOutcome
+        val finishLog = FinishLog(project, "Conductor finish: ${workspace.branch}")
+        try {
+            var prOutcome: FinishResult? = null
+            if (req.openPr) {
+                finishLog.section("Push branch ${workspace.branch}")
+                val push = Git.push(workspace.location, branch = workspace.branch)
+                finishLog.command(
+                    "git push --set-upstream origin ${workspace.branch}",
+                    push,
+                )
+                if (!push.ok) {
+                    val msg = push.stderr.ifBlank { push.stdout }
+                        .ifBlank { "git push failed (exit ${push.exitCode})." }
+                    finishLog.error("Push failed; skipping PR creation.")
+                    return FinishResult.PrCreateFailed(
+                        "Failed to push `${workspace.branch}` to origin:\n$msg",
+                    )
+                }
+
+                finishLog.section("Open pull request")
+                prOutcome = openPullRequest(workspace, req.prTitle, req.prBody, finishLog)
+                when (prOutcome) {
+                    is FinishResult.PrCreateFailed -> return prOutcome
+                    is FinishResult.PrOpened, null -> Unit
+                    else -> return prOutcome
+                }
             }
-        }
 
-        if (req.mergeLocally) {
-            val mergeResult = provider.finish(
-                project,
-                workspace,
-                req.strategy,
-                req.baseBranch,
-                req.deleteBranch,
+            if (req.mergeLocally) {
+                finishLog.section("Merge `${workspace.branch}` onto `${req.baseBranch}`")
+                val mergeResult = provider.finish(
+                    project,
+                    workspace,
+                    req.strategy,
+                    req.baseBranch,
+                    req.deleteBranch,
+                    finishLog,
+                )
+                if (mergeResult is FinishResult.Ok) invalidate()
+                return mergeResult
+            }
+
+            return prOutcome ?: FinishResult.Ok(
+                "Workspace `${workspace.branch}` preserved.",
             )
-            if (mergeResult is FinishResult.Ok) invalidate()
-            return mergeResult
+        } finally {
+            finishLog.done()
         }
-
-        return prOutcome ?: FinishResult.Ok(
-            "Workspace `${workspace.branch}` preserved.",
-        )
     }
 
     private fun openPullRequest(
         workspace: Workspace,
         title: String,
         body: String,
+        finishLog: FinishLog,
     ): FinishResult {
         val trunkPath = trunk() ?: return FinishResult.PrCreateFailed(
             "Could not locate trunk repository to determine forge.",
@@ -239,6 +263,9 @@ class WorkspaceService(private val project: Project) {
             )
         val base = Git.detectDefaultBranch(trunkPath)
         val resolvedTitle = title.ifBlank { workspace.branch }
+        finishLog.info(
+            "Creating ${forge.id} PR: ${workspace.branch} -> $base (title: \"$resolvedTitle\")",
+        )
         return when (val r = client.create(
             cwd = workspace.location,
             head = workspace.branch,
@@ -247,6 +274,7 @@ class WorkspaceService(private val project: Project) {
             body = body,
         )) {
             is PrOutcome.Ok -> {
+                finishLog.info("Opened PR #${r.value.number}: ${r.value.url}")
                 val now = Instant.now().toString()
                 val state = ConductorMarker.PrState(
                     forge = forge.id,
@@ -266,7 +294,10 @@ class WorkspaceService(private val project: Project) {
                 invalidate()
                 FinishResult.PrOpened(url = r.value.url, number = r.value.number, awaitingMerge = true)
             }
-            is PrOutcome.Err -> FinishResult.PrCreateFailed(r.message)
+            is PrOutcome.Err -> {
+                finishLog.error(r.message)
+                FinishResult.PrCreateFailed(r.message)
+            }
         }
     }
 

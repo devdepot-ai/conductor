@@ -127,6 +127,19 @@ object Git {
         return r.ok && r.stdout.isNotBlank()
     }
 
+    fun push(
+        worktree: Path,
+        remote: String = "origin",
+        branch: String,
+        setUpstream: Boolean = true,
+    ): GitResult {
+        val args = mutableListOf("push")
+        if (setUpstream) args += "--set-upstream"
+        args += remote
+        args += branch
+        return exec(args, worktree)
+    }
+
     fun worktreeAdd(mainRepo: Path, branch: String, worktreePath: Path, base: String): GitResult =
         exec(
             listOf("worktree", "add", "-b", branch, worktreePath.toString(), base),

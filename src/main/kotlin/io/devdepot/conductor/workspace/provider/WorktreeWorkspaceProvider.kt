@@ -13,6 +13,7 @@ import io.devdepot.conductor.ide.ProjectOpener
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
 import io.devdepot.conductor.workspace.ConductorMarker
+import io.devdepot.conductor.workspace.FinishLog
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 import io.devdepot.conductor.workspace.WorktreeWorkspace
@@ -135,6 +136,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         strategy: MergeStrategy,
         baseBranch: String,
         deleteBranch: Boolean,
+        log: FinishLog?,
     ): WorkspaceService.FinishResult {
         require(workspace is WorktreeWorkspace) {
             "WorktreeWorkspaceProvider can only finish WorktreeWorkspaces, got ${workspace::class.simpleName}"
@@ -154,38 +156,47 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         val mergeResult: GitResult = when (strategy) {
             MergeStrategy.MERGE_FF_ONLY -> {
                 val co = Git.checkout(repo, baseBranch)
+                log?.command("git checkout $baseBranch", co)
                 if (!co.ok) return WorkspaceService.FinishResult.Error("checkout $baseBranch failed:\n${co.stderr}")
-                Git.mergeFfOnly(repo, branch)
+                Git.mergeFfOnly(repo, branch).also { log?.command("git merge --ff-only $branch", it) }
             }
             MergeStrategy.MERGE_NO_FF -> {
                 val co = Git.checkout(repo, baseBranch)
+                log?.command("git checkout $baseBranch", co)
                 if (!co.ok) return WorkspaceService.FinishResult.Error("checkout $baseBranch failed:\n${co.stderr}")
-                Git.mergeNoFf(repo, branch)
+                Git.mergeNoFf(repo, branch).also { log?.command("git merge --no-ff $branch", it) }
             }
             MergeStrategy.SQUASH -> {
                 val co = Git.checkout(repo, baseBranch)
+                log?.command("git checkout $baseBranch", co)
                 if (!co.ok) return WorkspaceService.FinishResult.Error("checkout $baseBranch failed:\n${co.stderr}")
                 val sq = Git.mergeSquash(repo, branch)
+                log?.command("git merge --squash $branch", sq)
                 if (!sq.ok) sq
                 else Git.commit(repo, "Squash merge $branch")
+                    .also { log?.command("git commit -m 'Squash merge $branch'", it) }
             }
             MergeStrategy.REBASE -> {
                 val rb = Git.rebaseOnto(workspace.worktreePath, baseBranch)
+                log?.command("git rebase $baseBranch", rb)
                 if (!rb.ok) {
-                    Git.rebaseAbort(workspace.worktreePath)
+                    val abort = Git.rebaseAbort(workspace.worktreePath)
+                    log?.command("git rebase --abort", abort)
                     return WorkspaceService.FinishResult.Conflict(
                         "Rebase conflict — resolve manually in the worktree. Worktree preserved.",
                     )
                 }
                 val co = Git.checkout(repo, baseBranch)
+                log?.command("git checkout $baseBranch", co)
                 if (!co.ok) return WorkspaceService.FinishResult.Error("checkout $baseBranch failed:\n${co.stderr}")
-                Git.mergeFfOnly(repo, branch)
+                Git.mergeFfOnly(repo, branch).also { log?.command("git merge --ff-only $branch", it) }
             }
         }
 
         if (!mergeResult.ok) {
             if (strategy != MergeStrategy.REBASE) {
-                Git.mergeAbort(repo)
+                val abort = Git.mergeAbort(repo)
+                log?.command("git merge --abort", abort)
                 return WorkspaceService.FinishResult.Conflict(
                     "Merge conflict — resolve manually in main repo. Worktree preserved.",
                 )
@@ -195,7 +206,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             )
         }
 
-        val teardown = teardown(repo, workspace.worktreePath, branch, deleteBranch, force = false)
+        val teardown = teardown(repo, workspace.worktreePath, branch, deleteBranch, force = false, log = log)
         if (teardown != null) return teardown
 
         return WorkspaceService.FinishResult.Ok(
@@ -235,9 +246,14 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         branch: String,
         deleteBranch: Boolean,
         force: Boolean,
+        log: FinishLog? = null,
     ): WorkspaceService.FinishResult? {
         closeWorktreeWindow(worktreePath)
         val remove = Git.worktreeRemove(repo, worktreePath, force = force)
+        log?.command(
+            "git worktree remove${if (force) " --force" else ""} $worktreePath",
+            remove,
+        )
         if (!remove.ok) {
             return WorkspaceService.FinishResult.Error(
                 "git worktree remove${if (force) " --force" else ""} failed:\n" +
@@ -247,8 +263,9 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         }
         if (deleteBranch) {
             val del = Git.branchDelete(repo, branch, force = force)
+            log?.command("git branch ${if (force) "-D" else "-d"} $branch", del)
             if (!del.ok) {
-                log.warn("branch delete failed: ${del.stderr}")
+                this.log.warn("branch delete failed: ${del.stderr}")
             }
         }
         refreshMainRepoVcs(repo)
