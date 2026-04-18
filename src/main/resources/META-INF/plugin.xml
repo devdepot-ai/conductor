@@ -65,6 +65,7 @@
         <projectService serviceImplementation="io.devdepot.conductor.workspace.WorkspaceService"/>
         <projectService serviceImplementation="io.devdepot.conductor.ide.ProjectOpener"/>
         <projectService serviceImplementation="io.devdepot.conductor.settings.ConductorSettings"/>
+        <projectService serviceImplementation="io.devdepot.conductor.startup.PrWatcher"/>
         <projectConfigurable
             parentId="tools"
             instance="io.devdepot.conductor.settings.ConductorConfigurable"
@@ -103,6 +104,15 @@
                     icon="AllIcons.General.GreenCheckmark"
                     text="Finish AI Workspace"
                     description="Merge, rebase, squash, or discard the current AI workspace."/>
+            <action id="Conductor.OpenPr"
+                    class="io.devdepot.conductor.actions.OpenPrAction"
+                    icon="AllIcons.Vcs.Vendors.Github"
+                    text="Open Pull Request"
+                    description="Open the tracked pull request for the current workspace in a browser."/>
+            <action id="Conductor.ReapMergedWorkspace"
+                    class="io.devdepot.conductor.actions.ReapMergedWorkspaceAction"
+                    text="Check PR Status"
+                    description="Poll tracked pull requests now and reap any that have merged."/>
             <separator/>
             <action id="Conductor.OpenSettings"
                     class="io.devdepot.conductor.actions.OpenSettingsAction"

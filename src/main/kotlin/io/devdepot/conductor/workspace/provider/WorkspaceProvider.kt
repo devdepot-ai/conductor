@@ -39,6 +39,17 @@ interface WorkspaceProvider {
     ): WorkspaceService.FinishResult
 
     fun discard(project: Project, workspace: Workspace): WorkspaceService.FinishResult
+
+    /**
+     * Teardown without a merge: close the IDE window, remove the worktree,
+     * optionally delete the branch, refresh VCS. Used by the PR watcher when
+     * a tracked PR merges remotely.
+     */
+    fun reap(
+        project: Project,
+        workspace: Workspace,
+        deleteBranch: Boolean,
+    ): WorkspaceService.FinishResult
 }
 
 data class CreateSpec(

@@ -21,6 +21,11 @@ class ConductorStartupActivity : ProjectActivity {
 
         val basePath = project.basePath ?: return
         val root = Path.of(basePath)
+        // PR watcher polls forge APIs for tracked workspaces — only useful from
+        // the trunk window where all workspaces are visible.
+        if (!ConductorMarker.isWorkspace(root) && Git.isGitRepo(root)) {
+            PrWatcher.get(project).start()
+        }
         if (!ConductorMarker.isWorkspace(root)) return
 
         val config = ConductorMarker.readConfig(root)

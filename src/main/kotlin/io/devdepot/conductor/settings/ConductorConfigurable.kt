@@ -24,6 +24,13 @@ class ConductorConfigurable(private val project: Project) : Configurable {
     private val enforceCleanTreeCheckbox = JBCheckBox("Require clean working tree before finish")
         .apply { isSelected = true; isEnabled = false }
 
+    private val localFinishCheckbox = JBCheckBox("Merge locally on finish")
+    private val createPrCheckbox = JBCheckBox("Open a pull request on finish (GitHub, Bitbucket)")
+    private val autoReapCheckbox = JBCheckBox("Auto-reap workspace when PR merges")
+    private val prPollIntervalField = JBTextField()
+    private val ghCliField = JBTextField()
+    private val bbCliField = JBTextField()
+
     private var rootPanel: JComponent? = null
     private val workspaceMode: Boolean by lazy {
         val base = project.basePath ?: return@lazy false
@@ -60,26 +67,52 @@ class ConductorConfigurable(private val project: Project) : Configurable {
                 cell(openTerminalCheckbox)
                     .comment("When enabled, a terminal tab opens at the workspace root on open.")
             }
-            row("Finish command:") {
-                cell(finishCommandField)
-                    .align(AlignX.FILL)
-                    .resizableColumn()
-                    .comment(
-                        "Runs in the Run tool window before merge. " +
-                            "On non-zero exit the workspace is preserved and no merge happens.",
-                    )
-            }
-            row("") {
-                cell(enforceCleanTreeCheckbox)
-            }
             row("Worktree root:") {
                 cell(worktreeRootField)
                     .align(AlignX.FILL)
                     .resizableColumn()
                     .comment("Blank = a sibling folder named [repo-name]-worktrees/ next to the main repo.")
             }
-            row("Default merge strategy:") {
-                cell(strategyBox).align(AlignX.FILL)
+            group("Finish") {
+                row("Finish command:") {
+                    cell(finishCommandField)
+                        .align(AlignX.FILL)
+                        .resizableColumn()
+                        .comment(
+                            "Optional script run from the Run tool window before opening the PR. " +
+                                "Non-zero exit preserves the workspace.",
+                        )
+                }
+                row("") {
+                    cell(enforceCleanTreeCheckbox)
+                }
+                row("") {
+                    cell(createPrCheckbox)
+                        .comment(
+                            "Opens a PR on the forge detected from <code>origin</code>. " +
+                                "Requires <code>gh</code> (GitHub) or <code>bb</code> (Bitbucket) on <code>PATH</code>.",
+                        )
+                }
+                row("") {
+                    cell(localFinishCheckbox)
+                        .comment("When off, finish skips merging; the watcher reaps the workspace once the PR is merged.")
+                }
+                row("Default merge strategy:") {
+                    cell(strategyBox).align(AlignX.FILL)
+                }
+                row("") {
+                    cell(autoReapCheckbox)
+                        .comment("Delete worktree + branch automatically once the tracked PR is merged remotely.")
+                }
+                row("Poll interval (s):") {
+                    cell(prPollIntervalField).align(AlignX.FILL)
+                }
+                row("gh command:") {
+                    cell(ghCliField).align(AlignX.FILL).resizableColumn()
+                }
+                row("bb command:") {
+                    cell(bbCliField).align(AlignX.FILL).resizableColumn()
+                }
             }
         }
         rootPanel = panel
@@ -94,6 +127,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         openTerminalCheckbox.isSelected = snapshot?.openTerminalOnStart ?: settings.openTerminalOnStart
         worktreeRootField.text = settings.worktreeRoot
         strategyBox.selectedItem = snapshot?.defaultMergeStrategy
+            ?.takeIf { it.isNotBlank() }
             ?.let { MergeStrategy.fromId(it) }
             ?: settings.defaultMergeStrategy
 
@@ -136,7 +170,13 @@ class ConductorConfigurable(private val project: Project) : Configurable {
             finishCommandField.text != settings.finishCommand ||
             openTerminalCheckbox.isSelected != settings.openTerminalOnStart ||
             worktreeRootField.text != settings.worktreeRoot ||
-            (strategyBox.selectedItem as? MergeStrategy) != settings.defaultMergeStrategy
+            (strategyBox.selectedItem as? MergeStrategy) != settings.defaultMergeStrategy ||
+            localFinishCheckbox.isSelected != settings.localFinishEnabled ||
+            createPrCheckbox.isSelected != settings.createPrOnFinish ||
+            autoReapCheckbox.isSelected != settings.autoReapOnMerge ||
+            parsePollInterval() != settings.prPollIntervalSeconds ||
+            ghCliField.text.trim() != settings.ghCliCommand ||
+            bbCliField.text.trim() != settings.bbCliCommand
     }
 
     override fun apply() {
@@ -146,6 +186,12 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         settings.openTerminalOnStart = openTerminalCheckbox.isSelected
         settings.worktreeRoot = worktreeRootField.text.trim()
         settings.defaultMergeStrategy = strategyBox.selectedItem as? MergeStrategy ?: MergeStrategy.MERGE_NO_FF
+        settings.localFinishEnabled = localFinishCheckbox.isSelected
+        settings.createPrOnFinish = createPrCheckbox.isSelected
+        settings.autoReapOnMerge = autoReapCheckbox.isSelected
+        settings.prPollIntervalSeconds = parsePollInterval()
+        settings.ghCliCommand = ghCliField.text.trim().ifBlank { "gh" }
+        settings.bbCliCommand = bbCliField.text.trim().ifBlank { "bb" }
         settings.save()
     }
 
@@ -157,9 +203,18 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         openTerminalCheckbox.isSelected = settings.openTerminalOnStart
         worktreeRootField.text = settings.worktreeRoot
         strategyBox.selectedItem = settings.defaultMergeStrategy
+        localFinishCheckbox.isSelected = settings.localFinishEnabled
+        createPrCheckbox.isSelected = settings.createPrOnFinish
+        autoReapCheckbox.isSelected = settings.autoReapOnMerge
+        prPollIntervalField.text = settings.prPollIntervalSeconds.toString()
+        ghCliField.text = settings.ghCliCommand
+        bbCliField.text = settings.bbCliCommand
     }
 
     override fun disposeUIResources() {
         rootPanel = null
     }
+
+    private fun parsePollInterval(): Int =
+        prPollIntervalField.text.trim().toIntOrNull()?.coerceAtLeast(30) ?: 120
 }

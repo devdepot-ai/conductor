@@ -205,6 +205,10 @@ class TrunkPanel(
             if (value.isCurrent) {
                 append("  current", SimpleTextAttributes.GRAYED_ATTRIBUTES)
             }
+            val pr = io.devdepot.conductor.workspace.ConductorMarker.readConfig(value.location)?.pr
+            if (pr != null) {
+                append("  PR #${pr.number} · ${pr.state}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+            }
             append(
                 "    Created ${RelativeTime.format(value.createdAt)} · ${value.location}",
                 SimpleTextAttributes.GRAYED_ATTRIBUTES,

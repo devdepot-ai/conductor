@@ -19,6 +19,7 @@ import com.intellij.util.ui.UIUtil
 import io.devdepot.conductor.toolwindow.actions.RefreshWorkspacesAction
 import io.devdepot.conductor.toolwindow.actions.promptAndRenameWorkspace
 import io.devdepot.conductor.util.RelativeTime
+import io.devdepot.conductor.workspace.ConductorMarker
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 import javax.swing.JPanel
@@ -40,6 +41,7 @@ class WorkspacePanel(
     private val nameLabel = JBLabel()
     private val pathLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val createdLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
+    private val prLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val emptyLabel = JBLabel("No current workspace.").apply {
         foreground = UIUtil.getContextHelpForeground()
         isVisible = false
@@ -65,6 +67,7 @@ class WorkspacePanel(
     private fun buildToolbarGroup(): DefaultActionGroup {
         val group = DefaultActionGroup()
         ActionManager.getInstance().getAction("Conductor.FinishWorkspace")?.let { group.add(it) }
+        ActionManager.getInstance().getAction("Conductor.OpenPr")?.let { group.add(it) }
         group.add(RefreshWorkspacesAction())
         return group
     }
@@ -75,6 +78,7 @@ class WorkspacePanel(
             .addLabeledComponent(JBLabel("Name:"), nameLabel)
             .addLabeledComponent(JBLabel("Path:"), pathLabel)
             .addLabeledComponent(JBLabel("Created:"), createdLabel)
+            .addLabeledComponent(JBLabel("PR:"), prLabel)
             .addComponent(emptyLabel)
             .addComponentFillVertically(JPanel(), 0)
             .panel
@@ -93,6 +97,7 @@ class WorkspacePanel(
             nameLabel.text = ""
             pathLabel.text = ""
             createdLabel.text = ""
+            prLabel.text = ""
             emptyLabel.isVisible = true
             return
         }
@@ -100,7 +105,13 @@ class WorkspacePanel(
         nameLabel.text = current.name
         pathLabel.text = current.location.toString()
         createdLabel.text = RelativeTime.format(current.createdAt)
+        prLabel.text = formatPr(current)
         emptyLabel.isVisible = false
+    }
+
+    private fun formatPr(workspace: Workspace): String {
+        val pr = ConductorMarker.readConfig(workspace.location)?.pr ?: return "—"
+        return "#${pr.number} · ${pr.state}"
     }
 
     private inner class RenameCurrentAction :

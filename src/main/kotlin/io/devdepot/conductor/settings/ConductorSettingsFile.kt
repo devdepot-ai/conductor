@@ -39,6 +39,12 @@ object ConductorSettingsFile {
                 defaultMergeStrategy = root.stringOr("defaultMergeStrategy", MergeStrategy.MERGE_NO_FF.id),
                 branchPrefix = root.stringOr("branchPrefix", "wt/"),
                 enforceCleanTreeOnFinish = root.boolOr("enforceCleanTreeOnFinish", true),
+                localFinishEnabled = root.boolOr("localFinishEnabled", false),
+                createPrOnFinish = root.boolOr("createPrOnFinish", true),
+                autoReapOnMerge = root.boolOr("autoReapOnMerge", false),
+                prPollIntervalSeconds = root.intOr("prPollIntervalSeconds", 120),
+                ghCliCommand = root.stringOr("ghCliCommand", "gh"),
+                bbCliCommand = root.stringOr("bbCliCommand", "bb"),
             )
             val extras = JsonObject()
             for ((k, v) in root.entrySet()) {
@@ -64,6 +70,12 @@ object ConductorSettingsFile {
                 addProperty("defaultMergeStrategy", state.defaultMergeStrategy)
                 addProperty("branchPrefix", state.branchPrefix)
                 addProperty("enforceCleanTreeOnFinish", state.enforceCleanTreeOnFinish)
+                addProperty("localFinishEnabled", state.localFinishEnabled)
+                addProperty("createPrOnFinish", state.createPrOnFinish)
+                addProperty("autoReapOnMerge", state.autoReapOnMerge)
+                addProperty("prPollIntervalSeconds", state.prPollIntervalSeconds)
+                addProperty("ghCliCommand", state.ghCliCommand)
+                addProperty("bbCliCommand", state.bbCliCommand)
             }
             for ((k, v) in extraKeys.entrySet()) {
                 if (k !in KNOWN_KEYS) root.add(k, v)
@@ -83,6 +95,12 @@ object ConductorSettingsFile {
         "defaultMergeStrategy",
         "branchPrefix",
         "enforceCleanTreeOnFinish",
+        "localFinishEnabled",
+        "createPrOnFinish",
+        "autoReapOnMerge",
+        "prPollIntervalSeconds",
+        "ghCliCommand",
+        "bbCliCommand",
     )
 
     private fun JsonObject.stringOr(key: String, default: String): String {
@@ -93,5 +111,10 @@ object ConductorSettingsFile {
     private fun JsonObject.boolOr(key: String, default: Boolean): Boolean {
         val el = get(key) as? JsonPrimitive ?: return default
         return if (el.isBoolean) el.asBoolean else default
+    }
+
+    private fun JsonObject.intOr(key: String, default: Int): Int {
+        val el = get(key) as? JsonPrimitive ?: return default
+        return if (el.isNumber) el.asInt else default
     }
 }
