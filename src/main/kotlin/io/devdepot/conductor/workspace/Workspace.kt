@@ -18,6 +18,12 @@ sealed class Workspace {
     abstract val isCurrent: Boolean
 
     /**
+     * Whether this workspace has an IDE project window open in the current
+     * IDE process. Includes the current project (when it's a workspace).
+     */
+    abstract val isOpen: Boolean
+
+    /**
      * Local filesystem path where the workspace lives. For a worktree this is
      * the worktree directory; for future providers it's whatever path the IDE
      * treats as the project root.
@@ -38,6 +44,7 @@ data class WorktreeWorkspace(
     override val isCurrent: Boolean,
     val worktreePath: Path,
     override val createdAt: Instant? = null,
+    override val isOpen: Boolean = false,
 ) : Workspace() {
     override val location: Path get() = worktreePath
 }
