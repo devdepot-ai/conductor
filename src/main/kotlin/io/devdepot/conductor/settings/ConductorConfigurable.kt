@@ -146,10 +146,12 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         settings.openTerminalOnStart = openTerminalCheckbox.isSelected
         settings.worktreeRoot = worktreeRootField.text.trim()
         settings.defaultMergeStrategy = strategyBox.selectedItem as? MergeStrategy ?: MergeStrategy.MERGE_NO_FF
+        settings.save()
     }
 
     override fun reset() {
         if (workspaceMode) return
+        settings.reload()
         startupCommandField.text = settings.startupCommand
         finishCommandField.text = settings.finishCommand
         openTerminalCheckbox.isSelected = settings.openTerminalOnStart

@@ -1,11 +1,10 @@
 package io.devdepot.conductor.settings
 
-import com.intellij.openapi.components.PersistentStateComponent
+import com.google.gson.JsonObject
 import com.intellij.openapi.components.Service
-import com.intellij.openapi.components.State
-import com.intellij.openapi.components.Storage
 import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
+import java.nio.file.Path
 
 enum class MergeStrategy(val id: String, val label: String) {
     MERGE_FF_ONLY("merge-ff-only", "merge (ff-only)"),
@@ -19,12 +18,8 @@ enum class MergeStrategy(val id: String, val label: String) {
     }
 }
 
-@State(
-    name = "ConductorSettings",
-    storages = [Storage("conductor.xml")],
-)
 @Service(Service.Level.PROJECT)
-class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
+class ConductorSettings(private val project: Project) {
 
     data class State(
         var startupCommand: String = "",
@@ -36,37 +31,61 @@ class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
         var enforceCleanTreeOnFinish: Boolean = true,
     )
 
-    private var state = State()
+    private var state: State = State()
+    private var extraKeys: JsonObject = JsonObject()
+    private var loaded: Boolean = false
 
-    override fun getState(): State = state
-    override fun loadState(s: State) { state = s }
+    private fun ensureLoaded() {
+        if (loaded) return
+        val root = repoRoot()
+        if (root != null) {
+            val result = ConductorSettingsFile.read(root)
+            if (result != null) {
+                state = result.state
+                extraKeys = result.extraKeys
+            }
+        }
+        loaded = true
+    }
+
+    fun reload() {
+        loaded = false
+        ensureLoaded()
+    }
+
+    fun save() {
+        val root = repoRoot() ?: return
+        ConductorSettingsFile.write(root, state, extraKeys)
+    }
+
+    private fun repoRoot(): Path? = project.basePath?.let(Path::of)
 
     var startupCommand: String
-        get() = state.startupCommand
-        set(v) { state.startupCommand = v }
+        get() { ensureLoaded(); return state.startupCommand }
+        set(v) { ensureLoaded(); state.startupCommand = v }
 
     var finishCommand: String
-        get() = state.finishCommand
-        set(v) { state.finishCommand = v }
+        get() { ensureLoaded(); return state.finishCommand }
+        set(v) { ensureLoaded(); state.finishCommand = v }
 
     var openTerminalOnStart: Boolean
-        get() = state.openTerminalOnStart
-        set(v) { state.openTerminalOnStart = v }
+        get() { ensureLoaded(); return state.openTerminalOnStart }
+        set(v) { ensureLoaded(); state.openTerminalOnStart = v }
 
     var worktreeRoot: String
-        get() = state.worktreeRoot
-        set(v) { state.worktreeRoot = v }
+        get() { ensureLoaded(); return state.worktreeRoot }
+        set(v) { ensureLoaded(); state.worktreeRoot = v }
 
     var defaultMergeStrategy: MergeStrategy
-        get() = MergeStrategy.fromId(state.defaultMergeStrategy)
-        set(v) { state.defaultMergeStrategy = v.id }
+        get() { ensureLoaded(); return MergeStrategy.fromId(state.defaultMergeStrategy) }
+        set(v) { ensureLoaded(); state.defaultMergeStrategy = v.id }
 
     var branchPrefix: String
-        get() = state.branchPrefix.ifBlank { "wt/" }
-        set(v) { state.branchPrefix = v }
+        get() { ensureLoaded(); return state.branchPrefix.ifBlank { "wt/" } }
+        set(v) { ensureLoaded(); state.branchPrefix = v }
 
     val enforceCleanTreeOnFinish: Boolean
-        get() = state.enforceCleanTreeOnFinish
+        get() { ensureLoaded(); return state.enforceCleanTreeOnFinish }
 
     companion object {
         fun get(project: Project): ConductorSettings = project.service()
