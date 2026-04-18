@@ -23,8 +23,10 @@ class ConductorStartupActivity : ProjectActivity {
         val root = Path.of(basePath)
         if (!ConductorMarker.isWorkspace(root)) return
 
-        val name = root.fileName?.toString() ?: "workspace"
         val config = ConductorMarker.readConfig(root)
+        val name = config?.name?.takeIf { it.isNotBlank() }
+            ?: root.fileName?.toString()
+            ?: "workspace"
         val settings = ConductorSettings.get(project)
         val startupCommand = config?.startupCommand ?: settings.startupCommand
         val openTerminal = config?.openTerminalOnStart ?: settings.openTerminalOnStart

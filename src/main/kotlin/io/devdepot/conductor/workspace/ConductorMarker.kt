@@ -18,25 +18,20 @@ object ConductorMarker {
         val openTerminalOnStart: Boolean,
         val defaultMergeStrategy: String,
         val createdAt: String? = null,
+        val name: String? = null,
     )
 
     fun isWorkspace(path: Path): Boolean =
         Files.isRegularFile(path.resolve(MARKER_FILE))
 
     fun writeConfig(workspaceRoot: Path, config: Config) {
-        val json = buildString {
-            append("{\n")
-            append("  \"startupCommand\": ").append(jsonString(config.startupCommand)).append(",\n")
-            append("  \"openTerminalOnStart\": ").append(config.openTerminalOnStart).append(",\n")
-            append("  \"defaultMergeStrategy\": ").append(jsonString(config.defaultMergeStrategy))
-            if (config.createdAt != null) {
-                append(",\n")
-                append("  \"createdAt\": ").append(jsonString(config.createdAt)).append("\n")
-            } else {
-                append("\n")
-            }
-            append("}\n")
-        }
+        val lines = mutableListOf<String>()
+        lines += "  \"startupCommand\": ${jsonString(config.startupCommand)}"
+        lines += "  \"openTerminalOnStart\": ${config.openTerminalOnStart}"
+        lines += "  \"defaultMergeStrategy\": ${jsonString(config.defaultMergeStrategy)}"
+        if (config.createdAt != null) lines += "  \"createdAt\": ${jsonString(config.createdAt)}"
+        if (config.name != null) lines += "  \"name\": ${jsonString(config.name)}"
+        val json = "{\n" + lines.joinToString(",\n") + "\n}\n"
         Files.writeString(workspaceRoot.resolve(MARKER_FILE), json)
     }
 
@@ -50,6 +45,7 @@ object ConductorMarker {
                 openTerminalOnStart = extractBool(text, "openTerminalOnStart") ?: false,
                 defaultMergeStrategy = extractString(text, "defaultMergeStrategy") ?: "",
                 createdAt = extractString(text, "createdAt"),
+                name = extractString(text, "name"),
             )
         } catch (e: Throwable) {
             log.warn("Failed to read $file", e)

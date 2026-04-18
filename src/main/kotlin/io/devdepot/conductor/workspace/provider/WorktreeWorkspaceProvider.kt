@@ -41,19 +41,21 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             if (ePath == mainPath) return@mapNotNull null
             if (!ConductorMarker.isWorkspace(ePath)) return@mapNotNull null
             val branch = e.branch ?: "(detached)"
-            val name = ePath.fileName?.toString() ?: branch
+            val config = runCatching { ConductorMarker.readConfig(ePath) }.getOrNull()
+            val name = config?.name?.takeIf { it.isNotBlank() }
+                ?: ePath.fileName?.toString()
+                ?: branch
             WorktreeWorkspace(
                 name = name,
                 branch = branch,
                 isCurrent = currentProjectPath == ePath,
                 worktreePath = ePath,
-                createdAt = resolveCreatedAt(ePath),
+                createdAt = resolveCreatedAt(ePath, config?.createdAt),
             )
         }
     }
 
-    private fun resolveCreatedAt(workspaceRoot: Path): Instant? {
-        val fromMarker = runCatching { ConductorMarker.readConfig(workspaceRoot)?.createdAt }.getOrNull()
+    private fun resolveCreatedAt(workspaceRoot: Path, fromMarker: String?): Instant? {
         if (!fromMarker.isNullOrBlank()) {
             runCatching { return Instant.parse(fromMarker) }
         }
@@ -96,6 +98,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                     openTerminalOnStart = settings.openTerminalOnStart,
                     defaultMergeStrategy = settings.defaultMergeStrategy.id,
                     createdAt = createdAt.toString(),
+                    name = spec.branchName,
                 ),
             )
         } catch (e: Exception) {
@@ -112,9 +115,8 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             project.service<ProjectOpener>().openInNewWindow(worktreePath)
         }
 
-        val name = worktreePath.fileName?.toString() ?: spec.slug
         val workspace = WorktreeWorkspace(
-            name = name,
+            name = spec.branchName,
             branch = spec.branchName,
             isCurrent = false,
             worktreePath = worktreePath,
