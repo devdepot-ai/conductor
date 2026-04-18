@@ -1,7 +1,8 @@
 <idea-plugin>
     <id>io.devdepot.conductor</id>
     <name>Conductor</name>
-    <vendor url="https://github.com/devdepot-ai/conductor">devdepot</vendor>
+    <vendor url="https://github.com/devdepot-ai/conductor"
+            email="conductor@devdepot.ai">devdepot</vendor>
 
     <description><![CDATA[
 <h3>Conductor — AI Workspaces for JetBrains IDEs</h3>
