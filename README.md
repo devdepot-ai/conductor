@@ -115,14 +115,39 @@ journey in `USER_JOURNEYS.md`.
       is disabled; invoking via `Shift+Shift` shows
       "Conductor requires a git repository."
 
+## Installing
+
+### From the custom plugin repository (recommended)
+
+1. In your JetBrains IDE: *Settings → Plugins → ⚙ → Manage Plugin Repositories…*
+2. Add `https://devdepot-ai.github.io/conductor/updatePlugins.xml`
+3. *Marketplace* tab → search "Conductor" → *Install*.
+
+Updates arrive automatically whenever a new release is published.
+
+### From a zip
+
+Download the latest `Conductor-<version>.zip` from
+[Releases](https://github.com/devdepot-ai/conductor/releases) and install via
+*Settings → Plugins → ⚙ → Install Plugin from Disk…*.
+
 ## Building a distributable
 
 ```
 ./gradlew buildPlugin
 ```
 
-Produces `build/distributions/conductor-0.1.0.zip`. Install in your real
-JetBrains IDE via *Settings → Plugins → ⚙ → Install Plugin from Disk…*.
+Produces `build/distributions/Conductor-0.1.0.zip`.
+
+## Cutting a release
+
+1. Update `pluginVersion` in `gradle.properties` and add a `CHANGELOG.md` entry.
+2. Commit and push to `main`.
+3. Tag: `git tag v0.1.0 && git push origin v0.1.0`.
+
+The `Release` workflow builds the plugin, verifies it, creates a GitHub Release
+with the zip attached, and refreshes `updatePlugins.xml` on the `gh-pages`
+branch so existing installs see the update.
 
 ## Troubleshooting
 
