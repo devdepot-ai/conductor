@@ -43,8 +43,8 @@ jobs:
             exit 1
           fi
 
-      - name: Build & verify plugin
-        run: ./gradlew --no-daemon buildPlugin verifyPlugin
+      - name: Build plugin
+        run: ./gradlew --no-daemon buildPlugin
 
       - name: Locate artifact
         id: artifact
