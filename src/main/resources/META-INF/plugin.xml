@@ -1,13 +1,47 @@
 <idea-plugin>
     <id>io.devdepot.conductor</id>
     <name>Conductor</name>
-    <vendor>devdepot</vendor>
+    <vendor url="https://github.com/devdepot-ai/conductor">devdepot</vendor>
+
     <description><![CDATA[
-        AI Workspaces — isolated agent sessions backed by git worktrees.
-        <br/><br/>
-        Each workspace pairs a git worktree with its own IDE window, optionally
-        running a configurable startup command on open.
+<h3>Conductor — AI Workspaces for JetBrains IDEs</h3>
+
+<p>Turn each AI coding session into an <b>isolated workspace</b>: a git worktree, its own IDE window, and a terminal tab running your configured startup command. One workspace = one branch, one agent, zero cross-talk.</p>
+
+<h4>Features</h4>
+<ul>
+  <li><b>New AI Workspace</b> — pick a base branch, get a fresh worktree + dedicated IDE window in seconds.</li>
+  <li><b>List AI Workspaces</b> — see all active workspaces for the current repo, switch between them instantly.</li>
+  <li><b>Finish AI Workspace</b> — merge, rebase, squash, or discard. Dirty-state and conflict handling baked in.</li>
+  <li><b>Startup automation</b> — each workspace can auto-run a shell command (e.g. <code>claude</code>) in a dedicated terminal tab on open.</li>
+  <li><b>Per-workspace config</b> — lives in <code>.conductor/settings.json</code> at the worktree root; portable across JetBrains IDEs.</li>
+</ul>
+
+<h4>Requirements</h4>
+<ul>
+  <li><code>git</code> on <code>PATH</code>.</li>
+  <li>Your chosen AI CLI (default: <code>claude</code>) on <code>PATH</code>, if you want the terminal tab to do anything useful.</li>
+</ul>
+
+<p>Source &amp; issues: <a href="https://github.com/devdepot-ai/conductor">github.com/devdepot-ai/conductor</a></p>
     ]]></description>
+
+    <change-notes><![CDATA[
+<h4>0.1.2</h4>
+<ul>
+  <li>Richer plugin metadata: homepage link, detailed overview, change notes.</li>
+</ul>
+
+<h4>0.1.1</h4>
+<ul>
+  <li>Raise <code>until-build</code> to <code>999.*</code> so the plugin resolves on any modern JetBrains IDE build.</li>
+</ul>
+
+<h4>0.1.0</h4>
+<ul>
+  <li>Initial release: AI Workspaces backed by git worktrees, isolated IDE windows, startup terminal, New/List/Finish/Discard actions.</li>
+</ul>
+    ]]></change-notes>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>Git4Idea</depends>

@@ -5,6 +5,13 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.2]
+
+- Richer plugin metadata: vendor homepage link, detailed overview with feature
+  list, per-version change notes shown in the "What's New" tab.
+- Feed generator now derives the plugin-repo list description from
+  `plugin.xml`, keeping the two in sync.
+
 ## [0.1.1]
 
 - Raise `until-build` to `999.*` so the plugin resolves on any modern
