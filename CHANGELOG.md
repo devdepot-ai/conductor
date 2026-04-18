@@ -5,6 +5,10 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+- Tool window right-click menu: add **Open Without Startup Command** —
+  opens the workspace without running its configured startup command
+  (one-shot; terminal-on-start and ready notification still fire).
+
 ## [0.1.4] - 2026-04-18
 
 - New Conductor tool window with trunk (list of workspaces) and workspace

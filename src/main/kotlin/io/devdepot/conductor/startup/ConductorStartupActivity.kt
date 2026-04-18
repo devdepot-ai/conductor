@@ -31,7 +31,8 @@ class ConductorStartupActivity : ProjectActivity {
         val startupCommand = config?.startupCommand ?: settings.startupCommand
         val openTerminal = config?.openTerminalOnStart ?: settings.openTerminalOnStart
 
-        if (startupCommand.isNotBlank()) {
+        val skipStartupCommand = PendingStartupSkips.consumeSkip(root)
+        if (!skipStartupCommand && startupCommand.isNotBlank()) {
             StartupTaskRunner.run(project, root, startupCommand)
         }
         if (openTerminal) {
