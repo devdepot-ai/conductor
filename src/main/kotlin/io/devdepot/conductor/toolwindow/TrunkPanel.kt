@@ -111,17 +111,16 @@ class TrunkPanel(
     private fun selectedWorkspaces(): List<Workspace> = list.selectedValuesList ?: emptyList()
 
     private inner class OpenSelectedAction :
-        AnAction("Open", "Open the selected workspace(s) in new windows", ConductorIcons.Open) {
+        AnAction("Open", "Open this workspace in a new window", ConductorIcons.Open) {
         override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
         override fun update(e: AnActionEvent) {
-            val count = selectedWorkspaces().size
-            e.presentation.isEnabled = count > 0
-            e.presentation.text = if (count > 1) "Open ($count)" else "Open"
+            e.presentation.isEnabled = selectedWorkspaces().size == 1
         }
 
         override fun actionPerformed(e: AnActionEvent) {
-            selectedWorkspaces().forEach { openWorkspace(project, it) }
+            val only = selectedWorkspaces().singleOrNull() ?: return
+            openWorkspace(project, only)
         }
     }
 
