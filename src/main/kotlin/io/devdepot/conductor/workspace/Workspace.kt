@@ -1,6 +1,7 @@
 package io.devdepot.conductor.workspace
 
 import java.nio.file.Path
+import java.time.Instant
 
 /**
  * Logical Conductor workspace. Today the only implementation is a git
@@ -22,6 +23,13 @@ sealed class Workspace {
      * treats as the project root.
      */
     abstract val location: Path
+
+    /**
+     * When the workspace was created. Resolved from the marker file when
+     * available; falls back to filesystem creation time for pre-existing
+     * workspaces; null when neither source yields a timestamp.
+     */
+    abstract val createdAt: Instant?
 }
 
 data class WorktreeWorkspace(
@@ -29,6 +37,7 @@ data class WorktreeWorkspace(
     override val branch: String,
     override val isCurrent: Boolean,
     val worktreePath: Path,
+    override val createdAt: Instant? = null,
 ) : Workspace() {
     override val location: Path get() = worktreePath
 }

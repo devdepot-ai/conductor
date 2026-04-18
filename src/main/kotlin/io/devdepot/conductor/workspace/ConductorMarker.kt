@@ -17,6 +17,7 @@ object ConductorMarker {
         val startupCommand: String,
         val openTerminalOnStart: Boolean,
         val defaultMergeStrategy: String,
+        val createdAt: String? = null,
     )
 
     fun isWorkspace(path: Path): Boolean =
@@ -27,7 +28,13 @@ object ConductorMarker {
             append("{\n")
             append("  \"startupCommand\": ").append(jsonString(config.startupCommand)).append(",\n")
             append("  \"openTerminalOnStart\": ").append(config.openTerminalOnStart).append(",\n")
-            append("  \"defaultMergeStrategy\": ").append(jsonString(config.defaultMergeStrategy)).append("\n")
+            append("  \"defaultMergeStrategy\": ").append(jsonString(config.defaultMergeStrategy))
+            if (config.createdAt != null) {
+                append(",\n")
+                append("  \"createdAt\": ").append(jsonString(config.createdAt)).append("\n")
+            } else {
+                append("\n")
+            }
             append("}\n")
         }
         Files.writeString(workspaceRoot.resolve(MARKER_FILE), json)
@@ -42,6 +49,7 @@ object ConductorMarker {
                 startupCommand = extractString(text, "startupCommand") ?: "",
                 openTerminalOnStart = extractBool(text, "openTerminalOnStart") ?: false,
                 defaultMergeStrategy = extractString(text, "defaultMergeStrategy") ?: "",
+                createdAt = extractString(text, "createdAt"),
             )
         } catch (e: Throwable) {
             log.warn("Failed to read $file", e)

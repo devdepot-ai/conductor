@@ -100,9 +100,13 @@ class WorkspaceService(private val project: Project) {
         if (!refreshing.compareAndSet(false, true)) return
         ApplicationManager.getApplication().executeOnPooledThread {
             try {
+                val previous = snapshot
                 val next = computeSnapshot()
                 snapshot = next
                 snapshotAtMs = System.currentTimeMillis()
+                if (next != previous && !project.isDisposed) {
+                    project.messageBus.syncPublisher(WorkspaceTopics.CHANGED).changed()
+                }
             } catch (t: Throwable) {
                 log.warn("WorkspaceService snapshot refresh failed", t)
             } finally {

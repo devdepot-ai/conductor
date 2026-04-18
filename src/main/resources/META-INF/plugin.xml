@@ -64,6 +64,11 @@
             displayName="Conductor"/>
         <postStartupActivity implementation="io.devdepot.conductor.startup.ConductorStartupActivity"/>
         <notificationGroup id="Conductor" displayType="BALLOON" toolWindowId="Version Control"/>
+        <toolWindow id="Conductor"
+                    anchor="right"
+                    secondary="false"
+                    icon="AllIcons.Vcs.Branch"
+                    factoryClass="io.devdepot.conductor.toolwindow.ConductorToolWindowFactory"/>
     </extensions>
 
     <actions>

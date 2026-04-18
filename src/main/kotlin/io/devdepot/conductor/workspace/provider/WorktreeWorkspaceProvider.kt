@@ -18,6 +18,8 @@ import io.devdepot.conductor.workspace.WorkspaceService
 import io.devdepot.conductor.workspace.WorktreeWorkspace
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.attribute.BasicFileAttributes
+import java.time.Instant
 
 /**
  * Git-worktree-backed implementation of [WorkspaceProvider]. Every workspace
@@ -45,8 +47,21 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                 branch = branch,
                 isCurrent = currentProjectPath == ePath,
                 worktreePath = ePath,
+                createdAt = resolveCreatedAt(ePath),
             )
         }
+    }
+
+    private fun resolveCreatedAt(workspaceRoot: Path): Instant? {
+        val fromMarker = runCatching { ConductorMarker.readConfig(workspaceRoot)?.createdAt }.getOrNull()
+        if (!fromMarker.isNullOrBlank()) {
+            runCatching { return Instant.parse(fromMarker) }
+        }
+        return runCatching {
+            Files.readAttributes(workspaceRoot, BasicFileAttributes::class.java)
+                .creationTime()
+                .toInstant()
+        }.getOrNull()
     }
 
     override fun create(project: Project, spec: CreateSpec): WorkspaceService.Result {
@@ -70,6 +85,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             return WorkspaceService.Result.Error("git worktree add failed:\n${r.stderr.ifBlank { r.stdout }}")
         }
 
+        val createdAt = Instant.now()
         // Marker file doubles as config snapshot; written before opening the
         // window so the startup activity sees it on first open.
         try {
@@ -79,6 +95,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                     startupCommand = settings.startupCommand,
                     openTerminalOnStart = settings.openTerminalOnStart,
                     defaultMergeStrategy = settings.defaultMergeStrategy.id,
+                    createdAt = createdAt.toString(),
                 ),
             )
         } catch (e: Exception) {
@@ -101,6 +118,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             branch = spec.branchName,
             isCurrent = false,
             worktreePath = worktreePath,
+            createdAt = createdAt,
         )
         return WorkspaceService.Result.Ok(workspace)
     }
