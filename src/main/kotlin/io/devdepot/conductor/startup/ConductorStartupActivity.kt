@@ -4,7 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
 import com.intellij.openapi.vfs.VirtualFileManager
 import io.devdepot.conductor.git.Git
-import io.devdepot.conductor.ide.ClaudeTerminalLauncher
+import io.devdepot.conductor.ide.WorkspaceTerminalLauncher
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.ConductorMarker
@@ -30,7 +30,7 @@ class ConductorStartupActivity : ProjectActivity {
             StartupTaskRunner.run(project, root, startupCommand)
         }
         if (openTerminal) {
-            ClaudeTerminalLauncher.launchClaudeOnly(project, name)
+            WorkspaceTerminalLauncher.launch(project, name)
         }
 
         val branch = Git.exec(listOf("rev-parse", "--abbrev-ref", "HEAD"), root)

@@ -40,7 +40,7 @@ object ConductorMarker {
             val text = Files.readString(file)
             Config(
                 startupCommand = extractString(text, "startupCommand") ?: "",
-                openTerminalOnStart = extractBool(text, "openTerminalOnStart") ?: true,
+                openTerminalOnStart = extractBool(text, "openTerminalOnStart") ?: false,
                 defaultMergeStrategy = extractString(text, "defaultMergeStrategy") ?: "",
             )
         } catch (e: Throwable) {

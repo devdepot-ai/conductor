@@ -22,7 +22,7 @@ class NewWorkspaceAction : AnAction() {
         val enabled = project != null && ActionContext.isTrunk(project)
         e.presentation.isEnabled = enabled
         e.presentation.description = if (enabled) {
-            "Create a new AI workspace (dedicated IDE window + claude)."
+            "Create a new AI workspace (git worktree + dedicated IDE window)."
         } else {
             "Not available from inside an AI Workspace."
         }

@@ -58,7 +58,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
             }
             row("") {
                 cell(openTerminalCheckbox)
-                    .comment("When enabled, a terminal tab runs <code>claude</code> on workspace open.")
+                    .comment("When enabled, a terminal tab opens at the workspace root on open.")
             }
             row("Finish command:") {
                 cell(finishCommandField)

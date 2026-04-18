@@ -34,7 +34,7 @@ object ConductorSettingsFile {
             val state = ConductorSettings.State(
                 startupCommand = root.stringOr("startupCommand", ""),
                 finishCommand = root.stringOr("finishCommand", ""),
-                openTerminalOnStart = root.boolOr("openTerminalOnStart", true),
+                openTerminalOnStart = root.boolOr("openTerminalOnStart", false),
                 worktreeRoot = root.stringOr("worktreeRoot", ""),
                 defaultMergeStrategy = root.stringOr("defaultMergeStrategy", MergeStrategy.MERGE_NO_FF.id),
                 branchPrefix = root.stringOr("branchPrefix", "wt/"),

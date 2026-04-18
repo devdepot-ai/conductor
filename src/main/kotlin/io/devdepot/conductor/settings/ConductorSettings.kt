@@ -24,7 +24,7 @@ class ConductorSettings(private val project: Project) {
     data class State(
         var startupCommand: String = "",
         var finishCommand: String = "",
-        var openTerminalOnStart: Boolean = true,
+        var openTerminalOnStart: Boolean = false,
         var worktreeRoot: String = "",
         var defaultMergeStrategy: String = MergeStrategy.MERGE_NO_FF.id,
         var branchPrefix: String = "wt/",
