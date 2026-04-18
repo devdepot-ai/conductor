@@ -11,6 +11,7 @@ import com.intellij.openapi.ui.Messages
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
+import io.devdepot.conductor.startup.FinishCommandRunner
 import io.devdepot.conductor.ui.FinishWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.ConductorMarker
@@ -126,7 +127,40 @@ class FinishWorkspaceAction : AnAction() {
         val strategy = dialog.strategy
         val baseBranch = dialog.baseBranch
         val deleteBranch = dialog.deleteBranch
+        val finishCommand = ConductorSettings.get(project).finishCommand
 
+        if (finishCommand.isBlank()) {
+            queueMerge(project, service, workspace, strategy, baseBranch, deleteBranch)
+            return
+        }
+
+        FinishCommandRunner.run(
+            project = project,
+            cwd = workspace.path,
+            command = finishCommand,
+            tabTitle = "Conductor finish: ${workspace.branch}",
+        ) { exit ->
+            if (exit == 0) {
+                queueMerge(project, service, workspace, strategy, baseBranch, deleteBranch)
+            } else {
+                Notifications.error(
+                    project,
+                    "Conductor",
+                    "Finish command exited with code $exit — workspace preserved. " +
+                        "See the Run tool window for output.",
+                )
+            }
+        }
+    }
+
+    private fun queueMerge(
+        project: Project,
+        service: WorkspaceService,
+        workspace: Workspace,
+        strategy: MergeStrategy,
+        baseBranch: String,
+        deleteBranch: Boolean,
+    ) {
         object : Task.Backgroundable(project, "Finishing AI Workspace", false) {
             override fun run(indicator: ProgressIndicator) {
                 indicator.text = "Merging ${workspace.branch} → $baseBranch (${strategy.label})"

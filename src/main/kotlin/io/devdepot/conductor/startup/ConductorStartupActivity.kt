@@ -2,6 +2,7 @@ package io.devdepot.conductor.startup
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.startup.ProjectActivity
+import com.intellij.openapi.vfs.VirtualFileManager
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.ide.ClaudeTerminalLauncher
 import io.devdepot.conductor.settings.ConductorSettings
@@ -12,6 +13,9 @@ import java.nio.file.Path
 class ConductorStartupActivity : ProjectActivity {
 
     override suspend fun execute(project: Project) {
+        project.messageBus.connect()
+            .subscribe(VirtualFileManager.VFS_CHANGES, WorkspaceMarkerListener())
+
         val basePath = project.basePath ?: return
         val root = Path.of(basePath)
         if (!ConductorMarker.isWorkspace(root)) return

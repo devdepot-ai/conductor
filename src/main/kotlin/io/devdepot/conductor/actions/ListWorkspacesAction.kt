@@ -7,16 +7,12 @@ import com.intellij.openapi.application.ApplicationManager
 import com.intellij.openapi.progress.ProgressIndicator
 import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
-import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.ui.popup.JBPopupFactory
 import com.intellij.openapi.ui.popup.PopupStep
 import com.intellij.openapi.ui.popup.util.BaseListPopupStep
-import io.devdepot.conductor.git.Git
-import io.devdepot.conductor.ide.ProjectOpener
 import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
-import java.nio.file.Files
 
 class ListWorkspacesAction : AnAction() {
 
@@ -68,7 +64,7 @@ class ListWorkspacesAction : AnAction() {
 
             override fun onChosen(selected: Workspace?, finalChoice: Boolean): PopupStep<*>? {
                 if (selected != null && finalChoice) {
-                    ApplicationManager.getApplication().invokeLater { onSelected(project, selected) }
+                    ApplicationManager.getApplication().invokeLater { openWorkspace(project, selected) }
                 }
                 return FINAL_CHOICE
             }
@@ -77,35 +73,5 @@ class ListWorkspacesAction : AnAction() {
         JBPopupFactory.getInstance()
             .createListPopup(step)
             .showCenteredInCurrentWindow(project)
-    }
-
-    private fun onSelected(
-        project: Project,
-        w: Workspace,
-    ) {
-        val opener = project.getService(ProjectOpener::class.java)
-        val existing = opener.focusIfOpen(w.path)
-        if (existing != null) {
-            com.intellij.openapi.wm.WindowManager.getInstance().getFrame(existing)?.toFront()
-            return
-        }
-        if (!Files.exists(w.path)) {
-            val stale = Messages.showYesNoDialog(
-                project,
-                "Workspace directory ${w.path} is missing. Remove stale worktree record?",
-                "Stale Workspace",
-                Messages.getWarningIcon(),
-            )
-            if (stale == Messages.YES) {
-                object : Task.Backgroundable(project, "Removing stale worktree…", false) {
-                    override fun run(indicator: ProgressIndicator) {
-                        val repo = Git.mainRepoRoot(w.path) ?: return
-                        Git.worktreeRemove(repo, w.path, force = true)
-                    }
-                }.queue()
-            }
-            return
-        }
-        opener.openInNewWindow(w.path)
     }
 }

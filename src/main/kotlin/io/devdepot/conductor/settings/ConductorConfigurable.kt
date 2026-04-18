@@ -17,9 +17,12 @@ class ConductorConfigurable(private val project: Project) : Configurable {
 
     private val settings = ConductorSettings.get(project)
     private val startupCommandField = JBTextField()
+    private val finishCommandField = JBTextField()
     private val openTerminalCheckbox = JBCheckBox("Open terminal on workspace open")
     private val worktreeRootField = TextFieldWithBrowseButton()
     private val strategyBox = JComboBox(MergeStrategy.values())
+    private val enforceCleanTreeCheckbox = JBCheckBox("Require clean working tree before finish")
+        .apply { isSelected = true; isEnabled = false }
 
     private var rootPanel: JComponent? = null
     private val workspaceMode: Boolean by lazy {
@@ -57,6 +60,18 @@ class ConductorConfigurable(private val project: Project) : Configurable {
                 cell(openTerminalCheckbox)
                     .comment("When enabled, a terminal tab runs <code>claude</code> on workspace open.")
             }
+            row("Finish command:") {
+                cell(finishCommandField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
+                    .comment(
+                        "Runs in the Run tool window before merge. " +
+                            "On non-zero exit the workspace is preserved and no merge happens.",
+                    )
+            }
+            row("") {
+                cell(enforceCleanTreeCheckbox)
+            }
             row("Worktree root:") {
                 cell(worktreeRootField)
                     .align(AlignX.FILL)
@@ -75,6 +90,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         val basePath = project.basePath?.let { Path.of(it) }
         val snapshot = basePath?.let { ConductorMarker.readConfig(it) }
         startupCommandField.text = snapshot?.startupCommand ?: settings.startupCommand
+        finishCommandField.text = settings.finishCommand
         openTerminalCheckbox.isSelected = snapshot?.openTerminalOnStart ?: settings.openTerminalOnStart
         worktreeRootField.text = settings.worktreeRoot
         strategyBox.selectedItem = snapshot?.defaultMergeStrategy
@@ -97,6 +113,15 @@ class ConductorConfigurable(private val project: Project) : Configurable {
             row("") {
                 cell(openTerminalCheckbox).enabled(false)
             }
+            row("Finish command:") {
+                cell(finishCommandField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
+                    .enabled(false)
+            }
+            row("") {
+                cell(enforceCleanTreeCheckbox).enabled(false)
+            }
             row("Default merge strategy:") {
                 cell(strategyBox).align(AlignX.FILL).enabled(false)
             }
@@ -108,6 +133,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
     override fun isModified(): Boolean {
         if (workspaceMode) return false
         return startupCommandField.text != settings.startupCommand ||
+            finishCommandField.text != settings.finishCommand ||
             openTerminalCheckbox.isSelected != settings.openTerminalOnStart ||
             worktreeRootField.text != settings.worktreeRoot ||
             (strategyBox.selectedItem as? MergeStrategy) != settings.defaultMergeStrategy
@@ -116,6 +142,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
     override fun apply() {
         if (workspaceMode) return
         settings.startupCommand = startupCommandField.text.trim()
+        settings.finishCommand = finishCommandField.text.trim()
         settings.openTerminalOnStart = openTerminalCheckbox.isSelected
         settings.worktreeRoot = worktreeRootField.text.trim()
         settings.defaultMergeStrategy = strategyBox.selectedItem as? MergeStrategy ?: MergeStrategy.MERGE_NO_FF
@@ -124,6 +151,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
     override fun reset() {
         if (workspaceMode) return
         startupCommandField.text = settings.startupCommand
+        finishCommandField.text = settings.finishCommand
         openTerminalCheckbox.isSelected = settings.openTerminalOnStart
         worktreeRootField.text = settings.worktreeRoot
         strategyBox.selectedItem = settings.defaultMergeStrategy

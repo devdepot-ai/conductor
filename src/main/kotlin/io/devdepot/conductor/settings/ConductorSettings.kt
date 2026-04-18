@@ -28,10 +28,12 @@ class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
 
     data class State(
         var startupCommand: String = "",
+        var finishCommand: String = "",
         var openTerminalOnStart: Boolean = true,
         var worktreeRoot: String = "",
         var defaultMergeStrategy: String = MergeStrategy.MERGE_NO_FF.id,
         var branchPrefix: String = "wt/",
+        var enforceCleanTreeOnFinish: Boolean = true,
     )
 
     private var state = State()
@@ -42,6 +44,10 @@ class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
     var startupCommand: String
         get() = state.startupCommand
         set(v) { state.startupCommand = v }
+
+    var finishCommand: String
+        get() = state.finishCommand
+        set(v) { state.finishCommand = v }
 
     var openTerminalOnStart: Boolean
         get() = state.openTerminalOnStart
@@ -58,6 +64,9 @@ class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
     var branchPrefix: String
         get() = state.branchPrefix.ifBlank { "wt/" }
         set(v) { state.branchPrefix = v }
+
+    val enforceCleanTreeOnFinish: Boolean
+        get() = state.enforceCleanTreeOnFinish
 
     companion object {
         fun get(project: Project): ConductorSettings = project.service()
