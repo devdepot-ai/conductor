@@ -31,6 +31,8 @@ import io.devdepot.conductor.toolwindow.actions.promptAndRenameWorkspace
 import io.devdepot.conductor.util.RelativeTime
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
+import java.awt.Component
+import java.awt.Point
 import java.awt.event.MouseEvent
 import javax.swing.DefaultListModel
 import javax.swing.JList
@@ -76,7 +78,18 @@ class TrunkPanel(
             add(RenameSelectedAction())
             add(DeleteSelectedAction())
         }
-        PopupHandler.installPopupMenu(list, popup, ActionPlaces.TOOLWINDOW_POPUP)
+        list.addMouseListener(object : PopupHandler() {
+            override fun invokePopup(comp: Component, x: Int, y: Int) {
+                val index = list.locationToIndex(Point(x, y))
+                if (index >= 0 && !list.isSelectedIndex(index)) {
+                    list.selectedIndex = index
+                }
+                ActionManager.getInstance()
+                    .createActionPopupMenu(ActionPlaces.TOOLWINDOW_POPUP, popup)
+                    .component
+                    .show(comp, x, y)
+            }
+        })
 
         object : DoubleClickListener() {
             override fun onDoubleClick(event: MouseEvent): Boolean {
