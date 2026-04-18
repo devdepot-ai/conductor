@@ -19,8 +19,13 @@ class NewWorkspaceAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        val enabled = project != null && isGitDir(project)
+        val enabled = project != null && ActionContext.isTrunk(project)
         e.presentation.isEnabled = enabled
+        e.presentation.description = if (enabled) {
+            "Create a new AI workspace (dedicated IDE window + claude)."
+        } else {
+            "Not available from inside an AI Workspace."
+        }
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -31,13 +36,13 @@ class NewWorkspaceAction : AnAction() {
         }
         val service = WorkspaceService.get(project)
         val settings = ConductorSettings.get(project)
-        val mainRepo = service.mainRepo() ?: run {
-            Notifications.error(project, "Conductor", "Could not locate main repository.")
+        val trunk = service.trunk() ?: run {
+            Notifications.error(project, "Conductor", "Could not locate the trunk repository.")
             return
         }
 
-        val defaultBase = Git.detectDefaultBranch(mainRepo)
-        val branches = Git.listLocalBranches(mainRepo)
+        val defaultBase = Git.detectDefaultBranch(trunk)
+        val branches = Git.listLocalBranches(trunk)
         val defaultName = Git.generateBranchName(settings.branchPrefix)
 
         val dialog = NewWorkspaceDialog(project, defaultName, defaultBase, branches)

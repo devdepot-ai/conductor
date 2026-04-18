@@ -1,18 +1,78 @@
 package io.devdepot.conductor.workspace
 
+import com.intellij.openapi.diagnostic.Logger
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * A Conductor workspace is identified by the presence of a single marker file
+ * at its root: `.conductor-workspace.json`. The file doubles as the config
+ * snapshot captured at creation time.
+ */
 object ConductorMarker {
-    private const val DIR_NAME = ".conductor"
+    const val MARKER_FILE = ".conductor-workspace.json"
+    private val log = Logger.getInstance(ConductorMarker::class.java)
 
-    fun write(worktreeRoot: Path) {
-        val marker = worktreeRoot.resolve(DIR_NAME)
-        if (!Files.exists(marker)) {
-            Files.createDirectories(marker)
+    data class Config(
+        val startupCommand: String,
+        val openTerminalOnStart: Boolean,
+        val defaultMergeStrategy: String,
+    )
+
+    fun isWorkspace(path: Path): Boolean =
+        Files.isRegularFile(path.resolve(MARKER_FILE))
+
+    fun writeConfig(workspaceRoot: Path, config: Config) {
+        val json = buildString {
+            append("{\n")
+            append("  \"startupCommand\": ").append(jsonString(config.startupCommand)).append(",\n")
+            append("  \"openTerminalOnStart\": ").append(config.openTerminalOnStart).append(",\n")
+            append("  \"defaultMergeStrategy\": ").append(jsonString(config.defaultMergeStrategy)).append("\n")
+            append("}\n")
+        }
+        Files.writeString(workspaceRoot.resolve(MARKER_FILE), json)
+    }
+
+    fun readConfig(workspaceRoot: Path): Config? {
+        val file = workspaceRoot.resolve(MARKER_FILE)
+        if (!Files.isRegularFile(file)) return null
+        return try {
+            val text = Files.readString(file)
+            Config(
+                startupCommand = extractString(text, "startupCommand") ?: "",
+                openTerminalOnStart = extractBool(text, "openTerminalOnStart") ?: true,
+                defaultMergeStrategy = extractString(text, "defaultMergeStrategy") ?: "",
+            )
+        } catch (e: Throwable) {
+            log.warn("Failed to read $file", e)
+            null
         }
     }
 
-    fun isPresent(path: Path): Boolean =
-        Files.isDirectory(path.resolve(DIR_NAME))
+    private fun jsonString(s: String): String {
+        val escaped = s
+            .replace("\\", "\\\\")
+            .replace("\"", "\\\"")
+            .replace("\n", "\\n")
+            .replace("\r", "\\r")
+            .replace("\t", "\\t")
+        return "\"$escaped\""
+    }
+
+    private fun extractString(text: String, key: String): String? {
+        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"")
+        val m = regex.find(text) ?: return null
+        return m.groupValues[1]
+            .replace("\\\"", "\"")
+            .replace("\\n", "\n")
+            .replace("\\r", "\r")
+            .replace("\\t", "\t")
+            .replace("\\\\", "\\")
+    }
+
+    private fun extractBool(text: String, key: String): Boolean? {
+        val regex = Regex("\"${Regex.escape(key)}\"\\s*:\\s*(true|false)")
+        val m = regex.find(text) ?: return null
+        return m.groupValues[1] == "true"
+    }
 }

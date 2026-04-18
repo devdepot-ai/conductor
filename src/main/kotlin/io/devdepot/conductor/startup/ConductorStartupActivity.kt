@@ -14,12 +14,20 @@ class ConductorStartupActivity : ProjectActivity {
     override suspend fun execute(project: Project) {
         val basePath = project.basePath ?: return
         val root = Path.of(basePath)
-        if (!ConductorMarker.isPresent(root)) return
-        if (!Git.isWorktree(root)) return
+        if (!ConductorMarker.isWorkspace(root)) return
 
         val name = root.fileName?.toString() ?: "workspace"
+        val config = ConductorMarker.readConfig(root)
         val settings = ConductorSettings.get(project)
-        ClaudeTerminalLauncher.launch(project, name, settings.startupScriptPath)
+        val startupCommand = config?.startupCommand ?: settings.startupCommand
+        val openTerminal = config?.openTerminalOnStart ?: settings.openTerminalOnStart
+
+        if (startupCommand.isNotBlank()) {
+            StartupTaskRunner.run(project, root, startupCommand)
+        }
+        if (openTerminal) {
+            ClaudeTerminalLauncher.launchClaudeOnly(project, name)
+        }
 
         val branch = Git.exec(listOf("rev-parse", "--abbrev-ref", "HEAD"), root)
             .stdout.ifBlank { name }

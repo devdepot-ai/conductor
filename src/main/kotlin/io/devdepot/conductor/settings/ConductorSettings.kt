@@ -27,7 +27,8 @@ enum class MergeStrategy(val id: String, val label: String) {
 class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
 
     data class State(
-        var startupScriptPath: String = "",
+        var startupCommand: String = "",
+        var openTerminalOnStart: Boolean = true,
         var worktreeRoot: String = "",
         var defaultMergeStrategy: String = MergeStrategy.MERGE_NO_FF.id,
         var branchPrefix: String = "wt/",
@@ -38,9 +39,13 @@ class ConductorSettings : PersistentStateComponent<ConductorSettings.State> {
     override fun getState(): State = state
     override fun loadState(s: State) { state = s }
 
-    var startupScriptPath: String
-        get() = state.startupScriptPath
-        set(v) { state.startupScriptPath = v }
+    var startupCommand: String
+        get() = state.startupCommand
+        set(v) { state.startupCommand = v }
+
+    var openTerminalOnStart: Boolean
+        get() = state.openTerminalOnStart
+        set(v) { state.openTerminalOnStart = v }
 
     var worktreeRoot: String
         get() = state.worktreeRoot

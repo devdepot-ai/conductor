@@ -35,17 +35,17 @@ class WorkspaceService(private val project: Project) {
 
     fun projectPath(): Path? = project.basePath?.let { Path.of(it) }
 
-    fun mainRepo(): Path? {
+    fun trunk(): Path? {
         val p = projectPath() ?: return null
         if (!Git.isGitRepo(p)) return null
         return if (Git.isWorktree(p)) Git.mainRepoRoot(p) else p
     }
 
     /**
-     * All Conductor-managed worktrees for the current repo. Excludes the main worktree.
+     * All Conductor workspaces for the current repo. Excludes the trunk itself.
      */
     fun list(): List<Workspace> {
-        val repo = mainRepo() ?: return emptyList()
+        val repo = trunk() ?: return emptyList()
         val entries = Git.listWorktrees(repo)
         if (entries.isEmpty()) return emptyList()
         val mainPath = repo.toAbsolutePath().normalize()
@@ -53,7 +53,7 @@ class WorkspaceService(private val project: Project) {
         return entries.mapNotNull { e ->
             val ePath = e.path.toAbsolutePath().normalize()
             if (ePath == mainPath) return@mapNotNull null
-            if (!ConductorMarker.isPresent(ePath)) return@mapNotNull null
+            if (!ConductorMarker.isWorkspace(ePath)) return@mapNotNull null
             val branch = e.branch ?: "(detached)"
             val name = ePath.fileName?.toString() ?: branch
             Workspace(
@@ -67,13 +67,12 @@ class WorkspaceService(private val project: Project) {
 
     fun current(): Workspace? {
         val p = projectPath()?.toAbsolutePath()?.normalize() ?: return null
-        if (!ConductorMarker.isPresent(p)) return null
-        if (!Git.isWorktree(p)) return null
+        if (!ConductorMarker.isWorkspace(p)) return null
         return list().firstOrNull { it.path == p }
     }
 
     fun defaultWorktreeRoot(): Path {
-        val repo = mainRepo() ?: projectPath() ?: Path.of(System.getProperty("user.home"))
+        val repo = trunk() ?: projectPath() ?: Path.of(System.getProperty("user.home"))
         val parent = repo.parent ?: repo
         val repoName = repo.fileName?.toString() ?: "repo"
         return parent.resolve("$repoName-worktrees")
@@ -85,11 +84,12 @@ class WorkspaceService(private val project: Project) {
     }
 
     /**
-     * Creates the worktree, writes `.conductor/`, and opens a new IDE window on it.
-     * The new window's startup activity handles the terminal tab.
+     * Creates the worktree, writes the workspace marker, and opens a new IDE
+     * window on it. The new window's startup activity handles the terminal tab.
      */
     fun create(branchName: String, baseBranch: String, slug: String): Result {
-        val repo = mainRepo() ?: return Result.Error("Not inside a git repository.")
+        val repo = trunk() ?: return Result.Error("Not inside a git repository.")
+        val settings = ConductorSettings.get(project)
         val root = resolveWorktreeRoot()
         val worktreePath = root.resolve(slug).toAbsolutePath().normalize()
 
@@ -107,11 +107,25 @@ class WorkspaceService(private val project: Project) {
             return Result.Error("git worktree add failed:\n${r.stderr.ifBlank { r.stdout }}")
         }
 
-        // Marker before opening the window so J5 fires on first open.
+        // Marker file doubles as config snapshot; written before opening the
+        // window so the startup activity sees it on first open.
         try {
-            ConductorMarker.write(worktreePath)
+            ConductorMarker.writeConfig(
+                worktreePath,
+                ConductorMarker.Config(
+                    startupCommand = settings.startupCommand,
+                    openTerminalOnStart = settings.openTerminalOnStart,
+                    defaultMergeStrategy = settings.defaultMergeStrategy.id,
+                ),
+            )
         } catch (e: Exception) {
-            log.warn("Failed to write .conductor marker in $worktreePath", e)
+            log.warn("Failed to write ${ConductorMarker.MARKER_FILE} in $worktreePath", e)
+        }
+
+        try {
+            ensureMarkerExcluded(repo)
+        } catch (e: Exception) {
+            log.warn("Failed to update .git/info/exclude in $repo", e)
         }
 
         ApplicationManager.getApplication().invokeLater {
@@ -217,6 +231,30 @@ class WorkspaceService(private val project: Project) {
         Git.branchDelete(repo, workspace.branch, force = true)
         refreshMainRepoVcs(repo)
         return FinishResult.Ok("Discarded `${workspace.branch}`.")
+    }
+
+    /**
+     * Appends `.conductor-workspace.json` to the trunk's `.git/info/exclude`
+     * once. `info/exclude` lives at the git common dir, which is shared by
+     * trunk and all its worktrees — a single entry covers every workspace.
+     */
+    private fun ensureMarkerExcluded(trunkPath: Path) {
+        val exclude = trunkPath.resolve(".git").resolve("info").resolve("exclude")
+        if (!Files.isDirectory(exclude.parent)) return
+        val marker = ConductorMarker.MARKER_FILE
+        val existing = if (Files.isRegularFile(exclude)) Files.readString(exclude) else ""
+        val hasEntry = existing.lineSequence().any { it.trim() == marker }
+        if (hasEntry) return
+        val needsNewline = existing.isNotEmpty() && !existing.endsWith("\n")
+        val addition = buildString {
+            if (needsNewline) append('\n')
+            append("# added by Conductor\n")
+            append(marker).append('\n')
+        }
+        Files.writeString(
+            exclude,
+            existing + addition,
+        )
     }
 
     private fun closeWorktreeWindow(worktreePath: Path) {

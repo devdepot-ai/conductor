@@ -8,10 +8,11 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.ui.Messages
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
+import io.devdepot.conductor.settings.MergeStrategy
 import io.devdepot.conductor.ui.FinishWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
+import io.devdepot.conductor.workspace.ConductorMarker
 import io.devdepot.conductor.workspace.WorkspaceService
-import java.nio.file.Path
 
 class FinishWorkspaceAction : AnAction() {
 
@@ -20,9 +21,14 @@ class FinishWorkspaceAction : AnAction() {
     override fun update(e: AnActionEvent) {
         val project = e.project
         val enabled = project != null &&
-            Git.isGitRepo(Path.of(project.basePath ?: "")) &&
+            ActionContext.isWorkspace(project) &&
             WorkspaceService.get(project).current() != null
         e.presentation.isEnabled = enabled
+        e.presentation.description = if (enabled) {
+            "Merge, rebase, squash, or discard the current AI workspace."
+        } else {
+            "Only available from inside an AI Workspace."
+        }
     }
 
     override fun actionPerformed(e: AnActionEvent) {
@@ -54,12 +60,17 @@ class FinishWorkspaceAction : AnAction() {
         val defaultBase = Git.detectDefaultBranch(repo)
         val branches = Git.listLocalBranches(repo).ifEmpty { listOf(defaultBase) }
 
+        val snapshot = ConductorMarker.readConfig(workspace.path)
+        val defaultStrategy = snapshot?.defaultMergeStrategy
+            ?.let { MergeStrategy.fromId(it) }
+            ?: settings.defaultMergeStrategy
+
         val dialog = FinishWorkspaceDialog(
             project = project,
             branch = workspace.branch,
             defaultBase = defaultBase,
             branches = branches,
-            defaultStrategy = settings.defaultMergeStrategy,
+            defaultStrategy = defaultStrategy,
         )
         if (!dialog.showAndGet()) return
 

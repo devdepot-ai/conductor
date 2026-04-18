@@ -14,7 +14,6 @@ import io.devdepot.conductor.ui.Notifications
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 import java.nio.file.Files
-import java.nio.file.Path
 
 class ListWorkspacesAction : AnAction() {
 
@@ -22,7 +21,13 @@ class ListWorkspacesAction : AnAction() {
 
     override fun update(e: AnActionEvent) {
         val project = e.project
-        e.presentation.isEnabled = project != null && Git.isGitRepo(Path.of(project.basePath ?: ""))
+        val enabled = project != null && ActionContext.isTrunk(project)
+        e.presentation.isEnabled = enabled
+        e.presentation.description = if (enabled) {
+            "Show all active AI workspaces and switch between them."
+        } else {
+            "Not available from inside an AI Workspace."
+        }
     }
 
     override fun actionPerformed(e: AnActionEvent) {
