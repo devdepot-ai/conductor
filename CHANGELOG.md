@@ -5,6 +5,24 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.4] - 2026-04-18
+
+- New Conductor tool window with trunk (list of workspaces) and workspace
+  (current workspace details) modes; right-click menus for Open, Rename, and
+  Delete.
+- `Rename AI Workspace` action: rewrites `.conductor-workspace.json` in
+  place; the marker is now the source of truth for the workspace name.
+- Workspace name is persisted in the marker on create (defaulting to the
+  branch name) and read back in `enumerate()`, falling back to the
+  directory name when the field is absent.
+- Tool window list renderer and the `List AI Workspaces` popup now lead
+  with the workspace name; branch is shown in gray when it differs.
+- Tool window polish: icons, data-provider context, multi-select in the
+  trunk list, double-click to open, Refresh toolbar button.
+- Pin the startup terminal tab so IDE restarts don't lose it.
+- Internal: split logical `Workspace` from the `WorktreeWorkspace`
+  implementation to open the seam for future (non-worktree) providers.
+
 ## [0.1.3] - 2026-04-18
 
 - Add `conductor@devdepot.ai` as the plugin support email (shown in the

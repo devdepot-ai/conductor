@@ -28,6 +28,14 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.1.4</h4>
+<ul>
+  <li>New <b>Conductor</b> tool window: trunk view lists all workspaces with right-click Open / Rename / Delete; workspace view shows current workspace details with right-click Rename.</li>
+  <li><b>Rename AI Workspace</b> action rewrites <code>.conductor-workspace.json</code>; the workspace name is now stored in the marker file and used as the source of truth.</li>
+  <li>Workspace name defaults to the branch name on creation; list renderers now show name primary with the branch in gray when they differ.</li>
+  <li>Internal: split logical <code>Workspace</code> from <code>WorktreeWorkspace</code> implementation to prepare for additional workspace backings.</li>
+</ul>
+
 <h4>0.1.3</h4>
 <ul>
   <li>Support email shown in plugin details panel.</li>
