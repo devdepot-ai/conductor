@@ -7,6 +7,7 @@ import com.intellij.openapi.ui.Messages
 import com.intellij.openapi.wm.WindowManager
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.ide.ProjectOpener
+import io.devdepot.conductor.startup.PendingStartupSkips
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorktreeWorkspace
 import java.nio.file.Files
@@ -16,7 +17,11 @@ import java.nio.file.Files
  * If the workspace directory has been removed underneath us, offer to clean
  * up the stale record. Must be called from the EDT.
  */
-internal fun openWorkspace(project: Project, workspace: Workspace) {
+internal fun openWorkspace(
+    project: Project,
+    workspace: Workspace,
+    skipStartupCommand: Boolean = false,
+) {
     val opener = project.getService(ProjectOpener::class.java)
     val existing = opener.focusIfOpen(workspace.location)
     if (existing != null) {
@@ -39,6 +44,9 @@ internal fun openWorkspace(project: Project, workspace: Workspace) {
             }.queue()
         }
         return
+    }
+    if (skipStartupCommand) {
+        PendingStartupSkips.markSkip(workspace.location)
     }
     opener.openInNewWindow(workspace.location)
 }

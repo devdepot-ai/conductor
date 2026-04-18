@@ -72,6 +72,7 @@ class TrunkPanel(
 
         val popup = DefaultActionGroup().apply {
             add(OpenSelectedAction())
+            add(OpenSkipStartupAction())
             add(RenameSelectedAction())
             add(DeleteSelectedAction())
         }
@@ -123,6 +124,24 @@ class TrunkPanel(
         override fun actionPerformed(e: AnActionEvent) {
             val only = selectedWorkspaces().singleOrNull() ?: return
             openWorkspace(project, only)
+        }
+    }
+
+    private inner class OpenSkipStartupAction :
+        AnAction(
+            "Open Without Startup Command",
+            "Open this workspace in a new window without running its startup command",
+            ConductorIcons.Open,
+        ) {
+        override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
+
+        override fun update(e: AnActionEvent) {
+            e.presentation.isEnabled = selectedWorkspaces().size == 1
+        }
+
+        override fun actionPerformed(e: AnActionEvent) {
+            val only = selectedWorkspaces().singleOrNull() ?: return
+            openWorkspace(project, only, skipStartupCommand = true)
         }
     }
 
