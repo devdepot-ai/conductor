@@ -51,8 +51,8 @@ class FinishWorkspaceAction : AnAction() {
                     return
                 }
 
-                if (Git.isDirty(workspace.path)) {
-                    val files = Git.statusPorcelain(workspace.path).stdout.lines()
+                if (Git.isDirty(workspace.location)) {
+                    val files = Git.statusPorcelain(workspace.location).stdout.lines()
                         .filter { it.isNotBlank() }
                         .joinToString("\n")
                     ApplicationManager.getApplication().invokeLater {
@@ -65,7 +65,7 @@ class FinishWorkspaceAction : AnAction() {
                     return
                 }
 
-                val repo = Git.mainRepoRoot(workspace.path) ?: run {
+                val repo = Git.mainRepoRoot(workspace.location) ?: run {
                     ApplicationManager.getApplication().invokeLater {
                         Notifications.error(project, "Conductor", "Could not locate trunk repository.")
                     }
@@ -74,7 +74,7 @@ class FinishWorkspaceAction : AnAction() {
                 val defaultBase = Git.detectDefaultBranch(repo)
                 val branches = Git.listLocalBranches(repo).ifEmpty { listOf(defaultBase) }
 
-                val snapshot = ConductorMarker.readConfig(workspace.path)
+                val snapshot = ConductorMarker.readConfig(workspace.location)
                 val defaultStrategy = snapshot?.defaultMergeStrategy
                     ?.let { MergeStrategy.fromId(it) }
                     ?: settings.defaultMergeStrategy
@@ -136,7 +136,7 @@ class FinishWorkspaceAction : AnAction() {
 
         FinishCommandRunner.run(
             project = project,
-            cwd = workspace.path,
+            cwd = workspace.location,
             command = finishCommand,
             tabTitle = "Conductor finish: ${workspace.branch}",
         ) { exit ->

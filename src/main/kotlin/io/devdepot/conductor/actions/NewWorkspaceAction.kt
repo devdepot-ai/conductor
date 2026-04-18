@@ -9,8 +9,8 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.settings.ConductorSettings
-import io.devdepot.conductor.ui.NewWorkspaceDialog
 import io.devdepot.conductor.ui.Notifications
+import io.devdepot.conductor.ui.worktree.NewWorktreeWorkspaceDialog
 import io.devdepot.conductor.workspace.WorkspaceService
 
 class NewWorkspaceAction : AnAction() {
@@ -63,7 +63,7 @@ class NewWorkspaceAction : AnAction() {
         defaultBase: String,
         branches: List<String>,
     ) {
-        val dialog = NewWorkspaceDialog(project, defaultName, defaultBase, branches)
+        val dialog = NewWorktreeWorkspaceDialog(project, defaultName, defaultBase, branches)
         if (!dialog.showAndGet()) return
 
         val branchName = dialog.name.trim()

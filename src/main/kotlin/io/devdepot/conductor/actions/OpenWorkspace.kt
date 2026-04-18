@@ -8,36 +8,37 @@ import com.intellij.openapi.wm.WindowManager
 import io.devdepot.conductor.git.Git
 import io.devdepot.conductor.ide.ProjectOpener
 import io.devdepot.conductor.workspace.Workspace
+import io.devdepot.conductor.workspace.WorktreeWorkspace
 import java.nio.file.Files
 
 /**
  * Focus an already-open IDE window for the workspace, or open a new one.
- * If the worktree directory has been removed underneath us, offer to clean
- * up the stale worktree record. Must be called from the EDT.
+ * If the workspace directory has been removed underneath us, offer to clean
+ * up the stale record. Must be called from the EDT.
  */
 internal fun openWorkspace(project: Project, workspace: Workspace) {
     val opener = project.getService(ProjectOpener::class.java)
-    val existing = opener.focusIfOpen(workspace.path)
+    val existing = opener.focusIfOpen(workspace.location)
     if (existing != null) {
         WindowManager.getInstance().getFrame(existing)?.toFront()
         return
     }
-    if (!Files.exists(workspace.path)) {
+    if (!Files.exists(workspace.location)) {
         val stale = Messages.showYesNoDialog(
             project,
-            "Workspace directory ${workspace.path} is missing. Remove stale worktree record?",
+            "Workspace directory ${workspace.location} is missing. Remove stale worktree record?",
             "Stale Workspace",
             Messages.getWarningIcon(),
         )
-        if (stale == Messages.YES) {
+        if (stale == Messages.YES && workspace is WorktreeWorkspace) {
             object : Task.Backgroundable(project, "Removing stale worktree…", false) {
                 override fun run(indicator: ProgressIndicator) {
-                    val repo = Git.mainRepoRoot(workspace.path) ?: return
-                    Git.worktreeRemove(repo, workspace.path, force = true)
+                    val repo = Git.mainRepoRoot(workspace.worktreePath) ?: return
+                    Git.worktreeRemove(repo, workspace.worktreePath, force = true)
                 }
             }.queue()
         }
         return
     }
-    opener.openInNewWindow(workspace.path)
+    opener.openInNewWindow(workspace.location)
 }

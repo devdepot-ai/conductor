@@ -1,4 +1,4 @@
-package io.devdepot.conductor.ui
+package io.devdepot.conductor.ui.worktree
 
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
@@ -8,7 +8,12 @@ import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import javax.swing.JComponent
 
-class NewWorkspaceDialog(
+/**
+ * Worktree-backed workspace creation dialog. Asks for a branch name and base
+ * branch — both inherently worktree/git concepts. When a second workspace
+ * provider lands, factor a shared base dialog out of this one.
+ */
+class NewWorktreeWorkspaceDialog(
     project: Project,
     defaultName: String,
     defaultBase: String,

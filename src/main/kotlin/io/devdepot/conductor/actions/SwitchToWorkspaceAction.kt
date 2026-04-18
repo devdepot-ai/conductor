@@ -12,7 +12,7 @@ import io.devdepot.conductor.workspace.Workspace
  * Instantiated per workspace by [WorkspaceToolbarAction.getChildren].
  */
 class SwitchToWorkspaceAction(private val workspace: Workspace) :
-    AnAction(workspace.branch, workspace.path.toString(), ConductorIcons.InWorkspace), DumbAware {
+    AnAction(workspace.branch, workspace.location.toString(), ConductorIcons.InWorkspace), DumbAware {
 
     override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.BGT
 

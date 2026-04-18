@@ -72,7 +72,7 @@ class WorkspaceToolbarAction : ActionGroup(), DumbAware {
         val primaryId = if (current != null) "Conductor.FinishWorkspace" else "Conductor.NewWorkspace"
         mgr.getAction(primaryId)?.let { children += it }
 
-        val others = snap.workspaces.filter { it.path != current?.path }
+        val others = snap.workspaces.filter { it.location != current?.location }
         if (others.isNotEmpty()) {
             children += Separator.getInstance()
             others.forEach { ws -> children += SwitchToWorkspaceAction(ws) }
