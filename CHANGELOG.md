@@ -5,6 +5,11 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-04-18
+
+- Add `conductor@devdepot.ai` as the plugin support email (shown in the
+  IDE's plugin details panel).
+
 ## [0.1.2]
 
 - Richer plugin metadata: vendor homepage link, detailed overview with feature

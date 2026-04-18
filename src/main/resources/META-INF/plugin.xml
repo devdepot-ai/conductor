@@ -28,6 +28,11 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.1.3</h4>
+<ul>
+  <li>Support email shown in plugin details panel.</li>
+</ul>
+
 <h4>0.1.2</h4>
 <ul>
   <li>Richer plugin metadata: homepage link, detailed overview, change notes.</li>
