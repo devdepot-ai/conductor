@@ -4,6 +4,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.DialogWrapper
 import com.intellij.openapi.ui.ValidationInfo
 import com.intellij.ui.dsl.builder.bindItem
+import com.intellij.ui.dsl.builder.bindSelected
 import com.intellij.ui.dsl.builder.bindText
 import com.intellij.ui.dsl.builder.panel
 import javax.swing.JComponent
@@ -18,10 +19,15 @@ class NewWorktreeWorkspaceDialog(
     defaultName: String,
     defaultBase: String,
     private val branches: List<String>,
+    hasStartupCommand: Boolean = true,
 ) : DialogWrapper(project, true) {
 
     var name: String = defaultName
     var baseBranch: String = defaultBase
+    var runStartupCommand: Boolean = hasStartupCommand
+        private set
+
+    private val startupCommandConfigured: Boolean = hasStartupCommand
 
     init {
         title = "New AI Workspace"
@@ -42,6 +48,18 @@ class NewWorktreeWorkspaceDialog(
                 getter = { baseBranch },
                 setter = { baseBranch = it ?: defaultBase() },
             )
+        }
+        row {
+            checkBox("Run startup command after opening")
+                .bindSelected(::runStartupCommand)
+                .enabled(startupCommandConfigured)
+                .comment(
+                    if (startupCommandConfigured) {
+                        "Uncheck to open the workspace without running its configured startup command."
+                    } else {
+                        "No startup command configured (see Settings → Conductor)."
+                    },
+                )
         }
     }
 

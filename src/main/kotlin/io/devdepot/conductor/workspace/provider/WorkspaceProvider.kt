@@ -58,4 +58,5 @@ data class CreateSpec(
     val branchName: String,
     val baseBranch: String,
     val slug: String,
+    val skipStartupCommand: Boolean = false,
 )

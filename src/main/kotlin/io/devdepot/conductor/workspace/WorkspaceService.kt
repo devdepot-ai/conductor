@@ -168,8 +168,16 @@ class WorkspaceService(private val project: Project) {
         return if (configured.isEmpty()) defaultWorktreeRoot() else Path.of(configured)
     }
 
-    fun create(branchName: String, baseBranch: String, slug: String): Result {
-        val result = provider.create(project, CreateSpec(branchName, baseBranch, slug))
+    fun create(
+        branchName: String,
+        baseBranch: String,
+        slug: String,
+        skipStartupCommand: Boolean = false,
+    ): Result {
+        val result = provider.create(
+            project,
+            CreateSpec(branchName, baseBranch, slug, skipStartupCommand),
+        )
         if (result is Result.Ok) invalidate()
         return result
     }

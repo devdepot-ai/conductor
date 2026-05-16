@@ -12,6 +12,7 @@ import io.devdepot.conductor.git.GitResult
 import io.devdepot.conductor.ide.ProjectOpener
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.MergeStrategy
+import io.devdepot.conductor.startup.PendingStartupSkips
 import io.devdepot.conductor.workspace.ConductorMarker
 import io.devdepot.conductor.workspace.FinishLog
 import io.devdepot.conductor.workspace.Workspace
@@ -114,6 +115,10 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             ensureMarkerExcluded(repo)
         } catch (e: Exception) {
             log.warn("Failed to update .git/info/exclude in $repo", e)
+        }
+
+        if (spec.skipStartupCommand) {
+            PendingStartupSkips.markSkip(worktreePath)
         }
 
         ApplicationManager.getApplication().invokeLater {
