@@ -48,9 +48,17 @@ class NewWorkspaceAction : AnAction() {
                 val defaultBase = Git.detectDefaultBranch(trunk)
                 val branches = Git.listLocalBranches(trunk)
                 val defaultName = Git.generateBranchName(settings.branchPrefix)
+                val hasStartupCommand = settings.startupCommand.isNotBlank()
 
                 ApplicationManager.getApplication().invokeLater {
-                    showDialogAndCreate(project, service, defaultName, defaultBase, branches)
+                    showDialogAndCreate(
+                        project,
+                        service,
+                        defaultName,
+                        defaultBase,
+                        branches,
+                        hasStartupCommand,
+                    )
                 }
             }
         }.queue()
@@ -62,18 +70,26 @@ class NewWorkspaceAction : AnAction() {
         defaultName: String,
         defaultBase: String,
         branches: List<String>,
+        hasStartupCommand: Boolean,
     ) {
-        val dialog = NewWorktreeWorkspaceDialog(project, defaultName, defaultBase, branches)
+        val dialog = NewWorktreeWorkspaceDialog(
+            project,
+            defaultName,
+            defaultBase,
+            branches,
+            hasStartupCommand,
+        )
         if (!dialog.showAndGet()) return
 
         val branchName = dialog.name.trim()
         val baseBranch = dialog.baseBranch
         val slug = branchName.substringAfter('/', branchName)
+        val skip = hasStartupCommand && !dialog.runStartupCommand
 
         object : Task.Backgroundable(project, "Creating AI Workspace", false) {
             override fun run(indicator: ProgressIndicator) {
                 indicator.text = "git worktree add -b $branchName"
-                when (val r = service.create(branchName, baseBranch, slug)) {
+                when (val r = service.create(branchName, baseBranch, slug, skipStartupCommand = skip)) {
                     is WorkspaceService.Result.Ok -> {
                         Notifications.info(
                             project,
