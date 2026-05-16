@@ -5,6 +5,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-05-16
+
+- New AI Workspace dialog gains a **Run startup command after opening**
+  checkbox (checked by default). Uncheck to create a workspace without
+  auto-running the configured startup command — same behavior as the
+  existing **Open Without Startup Command** action, applied at creation
+  time. Wired through `CreateSpec` → `WorkspaceService.create` so future
+  workspace providers can honor it too.
+
 ## [0.1.6] - 2026-04-19
 
 - `Finish AI Workspace` now runs `git push --set-upstream origin <branch>`
