@@ -83,6 +83,21 @@ object Git {
         return r.stdout.lines().filter { it.isNotBlank() }
     }
 
+    /**
+     * Local branches followed by remote-tracking branches (e.g. `origin/feature`),
+     * suitable for a base-ref picker. `<remote>/HEAD` aliases are filtered out.
+     */
+    fun listAllBranches(mainRepo: Path): List<String> {
+        val out = mutableListOf<String>()
+        val local = exec(listOf("for-each-ref", "--format=%(refname:short)", "refs/heads"), mainRepo)
+        if (local.ok) out += local.stdout.lines().filter { it.isNotBlank() }
+        val remote = exec(listOf("for-each-ref", "--format=%(refname:short)", "refs/remotes"), mainRepo)
+        if (remote.ok) {
+            out += remote.stdout.lines().filter { it.isNotBlank() && !it.endsWith("/HEAD") }
+        }
+        return out
+    }
+
     fun listWorktrees(mainRepo: Path): List<WorktreeEntry> {
         val r = exec(listOf("worktree", "list", "--porcelain"), mainRepo)
         if (!r.ok) return emptyList()
