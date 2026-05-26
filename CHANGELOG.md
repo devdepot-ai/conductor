@@ -5,6 +5,30 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-05-26
+
+- Claude Code integration: live session status surfaces in the
+  Conductor tool window. A new **Claude** column in the trunk panel
+  and a workspace-panel row reflect Claude Code's lifecycle events
+  (`SessionStart`, `UserPromptSubmit`, `PreToolUse`, `PostToolUse`,
+  `Stop`, `Notification`, `SessionEnd`), wired through a user-global
+  hook installed into `~/.claude/settings.json`.
+- First user prompt per workspace is stashed (≤200 chars) into the
+  marker as `description` and shown inline in the trunk **Name**
+  column and on the workspace panel.
+- Stale Claude state files are cleaned up when the workspace IDE
+  window closes; a 1h staleness filter covers ungraceful kills.
+- New `TerminalPosition` setting (bottom / right / left) snapshots
+  into the workspace marker at creation so each workspace honors
+  the trunk's preference.
+- New `terminalStartCommand` setting captured in marker + settings.
+  Resolution order: marker → settings → `claude` when Claude Code
+  is detected with hooks installed. The command is typed into the
+  visible terminal tab via `sendCommandToExecute`.
+- Settings page gains a **Claude Code integration** section with
+  detect / install / uninstall / reinstall buttons, plus a one-shot
+  install snackbar on first git project open when hooks are missing.
+
 ## [0.2.1] - 2026-05-26
 
 - New AI Workspace dialog now uses the IDE's native auto-completing ref
