@@ -46,7 +46,7 @@ class NewWorkspaceAction : AnAction() {
                     return
                 }
                 val defaultBase = Git.detectDefaultBranch(trunk)
-                val branches = Git.listLocalBranches(trunk)
+                val branches = Git.listAllBranches(trunk)
                 val defaultName = Git.generateBranchName(settings.branchPrefix)
                 val hasStartupCommand = settings.startupCommand.isNotBlank()
 
