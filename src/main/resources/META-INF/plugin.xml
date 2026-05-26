@@ -89,6 +89,7 @@
     <depends>org.jetbrains.plugins.terminal</depends>
 
     <extensions defaultExtensionNs="com.intellij">
+        <applicationService serviceImplementation="io.devdepot.conductor.claude.ClaudeCodeDetector"/>
         <projectService serviceImplementation="io.devdepot.conductor.workspace.WorkspaceService"/>
         <projectService serviceImplementation="io.devdepot.conductor.ide.ProjectOpener"/>
         <projectService serviceImplementation="io.devdepot.conductor.settings.ConductorSettings"/>
@@ -99,6 +100,8 @@
             id="io.devdepot.conductor.settings"
             displayName="Conductor"/>
         <postStartupActivity implementation="io.devdepot.conductor.startup.ConductorStartupActivity"/>
+        <postStartupActivity implementation="io.devdepot.conductor.claude.ClaudeHookPromptStartup"/>
+        <postStartupActivity implementation="io.devdepot.conductor.claude.ClaudeStatusCleanupStartup"/>
         <notificationGroup id="Conductor" displayType="BALLOON" toolWindowId="Version Control"/>
         <toolWindow id="Conductor"
                     anchor="right"
@@ -106,6 +109,11 @@
                     icon="AllIcons.Vcs.Branch"
                     factoryClass="io.devdepot.conductor.toolwindow.ConductorToolWindowFactory"/>
     </extensions>
+
+    <applicationListeners>
+        <listener class="io.devdepot.conductor.claude.ClaudeStateFileListener"
+                  topic="com.intellij.openapi.vfs.newvfs.BulkFileListener"/>
+    </applicationListeners>
 
     <actions>
         <group id="Conductor.ToolbarGroup">

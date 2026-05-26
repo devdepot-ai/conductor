@@ -36,6 +36,13 @@ sealed class Workspace {
      * workspaces; null when neither source yields a timestamp.
      */
     abstract val createdAt: Instant?
+
+    /**
+     * Short freeform description. Auto-populated by the Claude hook from the
+     * first UserPromptSubmit; absent on workspaces created before that
+     * feature or whose first session never sent a prompt.
+     */
+    abstract val description: String?
 }
 
 data class WorktreeWorkspace(
@@ -45,6 +52,7 @@ data class WorktreeWorkspace(
     val worktreePath: Path,
     override val createdAt: Instant? = null,
     override val isOpen: Boolean = false,
+    override val description: String? = null,
 ) : Workspace() {
     override val location: Path get() = worktreePath
 }

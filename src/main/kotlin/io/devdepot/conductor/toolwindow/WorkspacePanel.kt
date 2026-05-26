@@ -16,6 +16,9 @@ import com.intellij.ui.components.JBLabel
 import com.intellij.util.ui.FormBuilder
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.UIUtil
+import io.devdepot.conductor.claude.ClaudeCodeDetector
+import io.devdepot.conductor.claude.ClaudeStatus
+import io.devdepot.conductor.claude.ClaudeStatusReader
 import io.devdepot.conductor.toolwindow.actions.RefreshWorkspacesAction
 import io.devdepot.conductor.toolwindow.actions.promptAndRenameWorkspace
 import io.devdepot.conductor.util.RelativeTime
@@ -39,9 +42,14 @@ class WorkspacePanel(
 
     private val branchLabel = JBLabel()
     private val nameLabel = JBLabel()
+    private val descriptionLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val pathLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val createdLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
     private val prLabel = JBLabel().apply { foreground = UIUtil.getContextHelpForeground() }
+    private val claudeLabel = JBLabel()
+    private val claudeRowLabel = JBLabel("Claude:")
+    private val claudeIntegrationVisible: Boolean =
+        ClaudeCodeDetector.get().get() != ClaudeCodeDetector.State.NotInstalled
     private val emptyLabel = JBLabel("No current workspace.").apply {
         foreground = UIUtil.getContextHelpForeground()
         isVisible = false
@@ -73,12 +81,15 @@ class WorkspacePanel(
     }
 
     private fun buildContent(): JPanel {
-        val details = FormBuilder.createFormBuilder()
+        val builder = FormBuilder.createFormBuilder()
             .addLabeledComponent(JBLabel("Branch:"), branchLabel)
             .addLabeledComponent(JBLabel("Name:"), nameLabel)
+            .addLabeledComponent(JBLabel("Description:"), descriptionLabel)
             .addLabeledComponent(JBLabel("Path:"), pathLabel)
             .addLabeledComponent(JBLabel("Created:"), createdLabel)
             .addLabeledComponent(JBLabel("PR:"), prLabel)
+        if (claudeIntegrationVisible) builder.addLabeledComponent(claudeRowLabel, claudeLabel)
+        val details = builder
             .addComponent(emptyLabel)
             .addComponentFillVertically(JPanel(), 0)
             .panel
@@ -95,18 +106,36 @@ class WorkspacePanel(
         if (current == null) {
             branchLabel.text = ""
             nameLabel.text = ""
+            descriptionLabel.text = ""
             pathLabel.text = ""
             createdLabel.text = ""
             prLabel.text = ""
+            claudeLabel.text = ""
             emptyLabel.isVisible = true
             return
         }
         branchLabel.text = current.branch
         nameLabel.text = current.name
+        descriptionLabel.text = current.description ?: "—"
+        descriptionLabel.toolTipText = current.description
         pathLabel.text = current.location.toString()
         createdLabel.text = RelativeTime.format(current.createdAt)
         prLabel.text = formatPr(current)
+        if (claudeIntegrationVisible) claudeLabel.text = formatClaude(current)
         emptyLabel.isVisible = false
+    }
+
+    private fun formatClaude(workspace: Workspace): String {
+        val status = ClaudeStatusReader.read(workspace.location)
+        if (status.sessions.isEmpty()) return "no active session"
+        val verdict = when (status.aggregate) {
+            ClaudeStatus.Working -> "working"
+            ClaudeStatus.NeedsAttention -> "needs you"
+            ClaudeStatus.Idle -> "idle"
+            ClaudeStatus.NotRunning -> "no active session"
+        }
+        return if (status.sessions.size == 1) verdict
+        else "$verdict · ${status.sessions.size} sessions"
     }
 
     private fun formatPr(workspace: Workspace): String {

@@ -26,6 +26,9 @@ import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.ListTableModel
 import com.intellij.util.ui.StatusText
 import io.devdepot.conductor.actions.openWorkspace
+import io.devdepot.conductor.claude.ClaudeCodeDetector
+import io.devdepot.conductor.claude.ClaudeStatus
+import io.devdepot.conductor.claude.ClaudeStatusReader
 import io.devdepot.conductor.icons.ConductorIcons
 import io.devdepot.conductor.toolwindow.actions.RefreshWorkspacesAction
 import io.devdepot.conductor.toolwindow.actions.confirmAndDiscardWorkspaces
@@ -53,12 +56,14 @@ class TrunkPanel(
     override fun getData(dataId: String): Any? =
         if (CommonDataKeys.PROJECT.`is`(dataId)) project else null
 
-    private val tableModel = ListTableModel<Workspace>(
-        NameColumn(),
-        BranchColumn(),
-        PrColumn(),
-        CreatedColumn(),
-    )
+    private val claudeIntegrationVisible: Boolean
+        get() = ClaudeCodeDetector.get().get() != ClaudeCodeDetector.State.NotInstalled
+
+    private val tableModel: ListTableModel<Workspace> = if (claudeIntegrationVisible) {
+        ListTableModel(NameColumn(), BranchColumn(), ClaudeStatusColumn(), PrColumn(), CreatedColumn())
+    } else {
+        ListTableModel(NameColumn(), BranchColumn(), PrColumn(), CreatedColumn())
+    }
 
     private val table = TableView(tableModel).apply {
         selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
@@ -121,10 +126,16 @@ class TrunkPanel(
 
     private fun adjustColumnWidths() {
         val cols = table.columnModel
-        cols.getColumn(0).preferredWidth = JBUI.scale(180) // Name
+        cols.getColumn(0).preferredWidth = JBUI.scale(280) // Name + description
         cols.getColumn(1).preferredWidth = JBUI.scale(160) // Branch
-        cols.getColumn(2).preferredWidth = JBUI.scale(110) // PR
-        cols.getColumn(3).preferredWidth = JBUI.scale(110) // Created
+        if (claudeIntegrationVisible) {
+            cols.getColumn(2).preferredWidth = JBUI.scale(120) // Claude
+            cols.getColumn(3).preferredWidth = JBUI.scale(110) // PR
+            cols.getColumn(4).preferredWidth = JBUI.scale(110) // Created
+        } else {
+            cols.getColumn(2).preferredWidth = JBUI.scale(110) // PR
+            cols.getColumn(3).preferredWidth = JBUI.scale(110) // Created
+        }
     }
 
     private fun buildToolbarGroup(): DefaultActionGroup {
@@ -248,7 +259,11 @@ class TrunkPanel(
                 } else if (ws.isOpen) {
                     append("  ● open", OPEN_ATTRIBUTES)
                 }
-                toolTipText = ws.location.toString()
+                ws.description?.let { append("  ${it}", SimpleTextAttributes.GRAYED_ATTRIBUTES) }
+                toolTipText = buildString {
+                    append(ws.location.toString())
+                    ws.description?.let { append("\n\n").append(it) }
+                }
                 ipad = JBUI.insets(4, 6)
             }
         }
@@ -295,6 +310,45 @@ class TrunkPanel(
         }
     }
 
+    private class ClaudeStatusColumn : WorkspaceColumn("Claude") {
+        override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
+            override fun customizeCellRenderer(
+                table: JTable,
+                value: Any?,
+                selected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int,
+            ) {
+                val ws = value as? Workspace ?: return
+                val status = ClaudeStatusReader.read(ws.location)
+                when (status.aggregate) {
+                    ClaudeStatus.NotRunning -> {
+                        append("—", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                    }
+                    ClaudeStatus.Working -> {
+                        append("● ", WORKING_ATTRIBUTES)
+                        append("Working", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                    }
+                    ClaudeStatus.NeedsAttention -> {
+                        append("● ", NEEDS_ATTENTION_ATTRIBUTES)
+                        append("Needs you", SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES)
+                    }
+                    ClaudeStatus.Idle -> {
+                        append("● ", IDLE_ATTRIBUTES)
+                        append("Idle", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                    }
+                }
+                val n = status.sessions.size
+                if (n > 1) append(" ×$n", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                toolTipText = status.sessions
+                    .joinToString("\n") { "${it.sessionId.take(8)} · ${it.state.name.lowercase()}" }
+                    .ifBlank { null }
+                ipad = JBUI.insets(4, 6)
+            }
+        }
+    }
+
     private class CreatedColumn : WorkspaceColumn("Created") {
         override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
             override fun customizeCellRenderer(
@@ -316,6 +370,18 @@ class TrunkPanel(
         private val OPEN_ATTRIBUTES = SimpleTextAttributes(
             SimpleTextAttributes.STYLE_PLAIN,
             com.intellij.ui.JBColor(0x2E7D32, 0x7BC67B),
+        )
+        private val WORKING_ATTRIBUTES = SimpleTextAttributes(
+            SimpleTextAttributes.STYLE_PLAIN,
+            com.intellij.ui.JBColor(0x1976D2, 0x5C9EE7),
+        )
+        private val NEEDS_ATTENTION_ATTRIBUTES = SimpleTextAttributes(
+            SimpleTextAttributes.STYLE_PLAIN,
+            com.intellij.ui.JBColor(0xE65100, 0xFFB74D),
+        )
+        private val IDLE_ATTRIBUTES = SimpleTextAttributes(
+            SimpleTextAttributes.STYLE_PLAIN,
+            com.intellij.ui.JBColor(0x9E9E9E, 0x6E6E6E),
         )
     }
 }

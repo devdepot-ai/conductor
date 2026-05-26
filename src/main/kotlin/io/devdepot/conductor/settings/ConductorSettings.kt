@@ -6,6 +6,19 @@ import com.intellij.openapi.components.service
 import com.intellij.openapi.project.Project
 import java.nio.file.Path
 
+enum class TerminalPosition(val id: String, val label: String) {
+    BOTTOM("bottom", "Bottom (default)"),
+    RIGHT("right", "Right"),
+    LEFT("left", "Left");
+
+    override fun toString(): String = label
+
+    companion object {
+        fun fromId(id: String?): TerminalPosition =
+            values().firstOrNull { it.id == id } ?: BOTTOM
+    }
+}
+
 enum class MergeStrategy(val id: String, val label: String) {
     MERGE_FF_ONLY("merge-ff-only", "merge (ff-only)"),
     MERGE_NO_FF("merge-no-ff", "merge (--no-ff)"),
@@ -35,6 +48,8 @@ class ConductorSettings(private val project: Project) {
         var prPollIntervalSeconds: Int = 120,
         var ghCliCommand: String = "gh",
         var bbCliCommand: String = "bb",
+        var terminalPosition: String = TerminalPosition.BOTTOM.id,
+        var terminalStartCommand: String = "",
     )
 
     private var state: State = State()
@@ -116,6 +131,19 @@ class ConductorSettings(private val project: Project) {
     var bbCliCommand: String
         get() { ensureLoaded(); return state.bbCliCommand.ifBlank { "bb" } }
         set(v) { ensureLoaded(); state.bbCliCommand = v }
+
+    var terminalPosition: TerminalPosition
+        get() { ensureLoaded(); return TerminalPosition.fromId(state.terminalPosition) }
+        set(v) { ensureLoaded(); state.terminalPosition = v.id }
+
+    /**
+     * Command to type into the workspace's terminal tab on open. Distinct
+     * from [startupCommand], which runs as an invisible IDE background task.
+     * Blank = no command sent (a plain shell prompt).
+     */
+    var terminalStartCommand: String
+        get() { ensureLoaded(); return state.terminalStartCommand }
+        set(v) { ensureLoaded(); state.terminalStartCommand = v }
 
     companion object {
         fun get(project: Project): ConductorSettings = project.service()

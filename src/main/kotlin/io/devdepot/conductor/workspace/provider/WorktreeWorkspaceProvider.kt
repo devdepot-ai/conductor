@@ -57,6 +57,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                 worktreePath = ePath,
                 createdAt = resolveCreatedAt(ePath, config?.createdAt),
                 isOpen = ePath in openProjectPaths,
+                description = config?.description?.takeIf { it.isNotBlank() },
             )
         }
     }
@@ -105,6 +106,8 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                     defaultMergeStrategy = settings.defaultMergeStrategy.id,
                     createdAt = createdAt.toString(),
                     name = spec.branchName,
+                    terminalPosition = settings.terminalPosition.id,
+                    terminalStartCommand = settings.terminalStartCommand,
                 ),
             )
         } catch (e: Exception) {
