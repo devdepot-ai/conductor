@@ -107,6 +107,7 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
                     createdAt = createdAt.toString(),
                     name = spec.branchName,
                     terminalPosition = settings.terminalPosition.id,
+                    terminalStartCommand = settings.terminalStartCommand,
                 ),
             )
         } catch (e: Exception) {

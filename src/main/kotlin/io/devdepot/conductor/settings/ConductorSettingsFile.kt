@@ -46,6 +46,7 @@ object ConductorSettingsFile {
                 ghCliCommand = root.stringOr("ghCliCommand", "gh"),
                 bbCliCommand = root.stringOr("bbCliCommand", "bb"),
                 terminalPosition = root.stringOr("terminalPosition", TerminalPosition.BOTTOM.id),
+                terminalStartCommand = root.stringOr("terminalStartCommand", ""),
             )
             val extras = JsonObject()
             for ((k, v) in root.entrySet()) {
@@ -78,6 +79,7 @@ object ConductorSettingsFile {
                 addProperty("ghCliCommand", state.ghCliCommand)
                 addProperty("bbCliCommand", state.bbCliCommand)
                 addProperty("terminalPosition", state.terminalPosition)
+                addProperty("terminalStartCommand", state.terminalStartCommand)
             }
             for ((k, v) in extraKeys.entrySet()) {
                 if (k !in KNOWN_KEYS) root.add(k, v)
@@ -104,6 +106,7 @@ object ConductorSettingsFile {
         "ghCliCommand",
         "bbCliCommand",
         "terminalPosition",
+        "terminalStartCommand",
     )
 
     private fun JsonObject.stringOr(key: String, default: String): String {

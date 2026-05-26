@@ -49,6 +49,7 @@ class ConductorSettings(private val project: Project) {
         var ghCliCommand: String = "gh",
         var bbCliCommand: String = "bb",
         var terminalPosition: String = TerminalPosition.BOTTOM.id,
+        var terminalStartCommand: String = "",
     )
 
     private var state: State = State()
@@ -134,6 +135,15 @@ class ConductorSettings(private val project: Project) {
     var terminalPosition: TerminalPosition
         get() { ensureLoaded(); return TerminalPosition.fromId(state.terminalPosition) }
         set(v) { ensureLoaded(); state.terminalPosition = v.id }
+
+    /**
+     * Command to type into the workspace's terminal tab on open. Distinct
+     * from [startupCommand], which runs as an invisible IDE background task.
+     * Blank = no command sent (a plain shell prompt).
+     */
+    var terminalStartCommand: String
+        get() { ensureLoaded(); return state.terminalStartCommand }
+        set(v) { ensureLoaded(); state.terminalStartCommand = v }
 
     companion object {
         fun get(project: Project): ConductorSettings = project.service()

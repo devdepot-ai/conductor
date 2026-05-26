@@ -25,6 +25,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
     private val finishCommandField = JBTextField()
     private val openTerminalCheckbox = JBCheckBox("Open terminal on workspace open")
     private val terminalPositionBox = JComboBox(TerminalPosition.values())
+    private val terminalStartCommandField = JBTextField()
     private val worktreeRootField = TextFieldWithBrowseButton()
     private val strategyBox = JComboBox(MergeStrategy.values())
     private val enforceCleanTreeCheckbox = JBCheckBox("Require clean working tree before finish")
@@ -94,6 +95,16 @@ class ConductorConfigurable(private val project: Project) : Configurable {
                 cell(terminalPositionBox)
                     .align(AlignX.FILL)
                     .comment("Where the Terminal tool window is anchored when Conductor opens a workspace tab.")
+            }
+            row("Start command in terminal:") {
+                cell(terminalStartCommandField)
+                    .align(AlignX.FILL)
+                    .resizableColumn()
+                    .comment(
+                        "Typed into the workspace terminal tab on open. " +
+                            "Defaults to <code>claude</code> when Claude Code hooks are installed; " +
+                            "leave blank for a plain shell.",
+                    )
             }
             row("Worktree root:") {
                 cell(worktreeRootField)
@@ -198,6 +209,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
             finishCommandField.text != settings.finishCommand ||
             openTerminalCheckbox.isSelected != settings.openTerminalOnStart ||
             (terminalPositionBox.selectedItem as? TerminalPosition) != settings.terminalPosition ||
+            terminalStartCommandField.text != settings.terminalStartCommand ||
             worktreeRootField.text != settings.worktreeRoot ||
             (strategyBox.selectedItem as? MergeStrategy) != settings.defaultMergeStrategy ||
             localFinishCheckbox.isSelected != settings.localFinishEnabled ||
@@ -214,6 +226,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         settings.finishCommand = finishCommandField.text.trim()
         settings.openTerminalOnStart = openTerminalCheckbox.isSelected
         settings.terminalPosition = terminalPositionBox.selectedItem as? TerminalPosition ?: TerminalPosition.BOTTOM
+        settings.terminalStartCommand = terminalStartCommandField.text.trim()
         settings.worktreeRoot = worktreeRootField.text.trim()
         settings.defaultMergeStrategy = strategyBox.selectedItem as? MergeStrategy ?: MergeStrategy.MERGE_NO_FF
         settings.localFinishEnabled = localFinishCheckbox.isSelected
@@ -232,6 +245,7 @@ class ConductorConfigurable(private val project: Project) : Configurable {
         finishCommandField.text = settings.finishCommand
         openTerminalCheckbox.isSelected = settings.openTerminalOnStart
         terminalPositionBox.selectedItem = settings.terminalPosition
+        terminalStartCommandField.text = settings.terminalStartCommand
         worktreeRootField.text = settings.worktreeRoot
         strategyBox.selectedItem = settings.defaultMergeStrategy
         localFinishCheckbox.isSelected = settings.localFinishEnabled

@@ -6,6 +6,7 @@ import com.intellij.openapi.project.Project
 import com.intellij.openapi.wm.ToolWindowAnchor
 import com.intellij.openapi.wm.ToolWindowManager
 import com.intellij.terminal.ui.TerminalWidget
+import io.devdepot.conductor.claude.ClaudeCodeDetector
 import io.devdepot.conductor.settings.ConductorSettings
 import io.devdepot.conductor.settings.TerminalPosition
 import io.devdepot.conductor.workspace.ConductorMarker
@@ -23,10 +24,29 @@ object WorkspaceTerminalLauncher {
                 val manager = TerminalToolWindowManager.getInstance(project)
                 val widget = manager.createShellWidget(project.basePath, tabName, true, true)
                 pinContent(project, widget)
+                resolveTerminalStartCommand(project)?.let { cmd ->
+                    runCatching { widget.sendCommandToExecute(cmd) }
+                        .onFailure { log.warn("Failed to send terminal start command", it) }
+                }
             } catch (e: Throwable) {
                 log.warn("Failed to launch terminal for $tabName", e)
             }
         }
+    }
+
+    /**
+     * Marker > settings > "claude" when Claude hooks are installed. Blank
+     * result means "send nothing — leave the user at a plain prompt".
+     */
+    private fun resolveTerminalStartCommand(project: Project): String? {
+        val base = project.basePath?.let(Path::of)
+        val fromMarker = base?.let { ConductorMarker.readConfig(it)?.terminalStartCommand }
+        val raw = fromMarker?.takeIf { it.isNotBlank() }
+            ?: ConductorSettings.get(project).terminalStartCommand.takeIf { it.isNotBlank() }
+        if (raw != null) return raw
+        return if (ClaudeCodeDetector.get().get() == ClaudeCodeDetector.State.InstalledWithHooks) {
+            "claude"
+        } else null
     }
 
     private fun applyAnchor(project: Project) {
