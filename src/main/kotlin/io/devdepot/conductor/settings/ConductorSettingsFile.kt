@@ -45,6 +45,7 @@ object ConductorSettingsFile {
                 prPollIntervalSeconds = root.intOr("prPollIntervalSeconds", 120),
                 ghCliCommand = root.stringOr("ghCliCommand", "gh"),
                 bbCliCommand = root.stringOr("bbCliCommand", "bb"),
+                terminalPosition = root.stringOr("terminalPosition", TerminalPosition.BOTTOM.id),
             )
             val extras = JsonObject()
             for ((k, v) in root.entrySet()) {
@@ -76,6 +77,7 @@ object ConductorSettingsFile {
                 addProperty("prPollIntervalSeconds", state.prPollIntervalSeconds)
                 addProperty("ghCliCommand", state.ghCliCommand)
                 addProperty("bbCliCommand", state.bbCliCommand)
+                addProperty("terminalPosition", state.terminalPosition)
             }
             for ((k, v) in extraKeys.entrySet()) {
                 if (k !in KNOWN_KEYS) root.add(k, v)
@@ -101,6 +103,7 @@ object ConductorSettingsFile {
         "prPollIntervalSeconds",
         "ghCliCommand",
         "bbCliCommand",
+        "terminalPosition",
     )
 
     private fun JsonObject.stringOr(key: String, default: String): String {

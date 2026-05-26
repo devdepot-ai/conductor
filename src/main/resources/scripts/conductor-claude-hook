@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+# Conductor Claude Code hook: maps Claude Code lifecycle events to per-session
+# status files under <conductor-workspace>/.conductor/claude/<session_id>.json.
+# Silently ignored in non-Conductor working directories.
+#
+# Hook input: a single JSON object on stdin with at least session_id, cwd,
+# hook_event_name; transcript_path when available. Hook output: empty JSON
+# object on stdout so Claude Code keeps going regardless of what we did.
+
+import json
+import os
+import sys
+import tempfile
+import time
+from pathlib import Path
+
+CONDUCTOR_MARKER = ".conductor-workspace.json"
+
+EVENT_TO_STATE = {
+    "SessionStart": "idle",
+    "UserPromptSubmit": "working",
+    "PreToolUse": "working",
+    "PostToolUse": "working",
+    "Stop": "idle",
+    "Notification": "needs_attention",
+}
+
+
+def find_workspace_root(start: Path) -> Path | None:
+    cur = start.resolve()
+    while True:
+        if (cur / CONDUCTOR_MARKER).is_file():
+            return cur
+        if cur.parent == cur:
+            return None
+        cur = cur.parent
+
+
+MAX_DESCRIPTION = 200
+
+
+def maybe_set_description(workspace: Path, prompt: str | None) -> None:
+    if not prompt:
+        return
+    marker = workspace / CONDUCTOR_MARKER
+    if not marker.is_file():
+        return
+    try:
+        raw = marker.read_text()
+        data = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        return
+    if not isinstance(data, dict):
+        return
+    existing = data.get("description")
+    if isinstance(existing, str) and existing.strip():
+        return
+    cleaned = " ".join(prompt.split())
+    if len(cleaned) > MAX_DESCRIPTION:
+        cleaned = cleaned[: MAX_DESCRIPTION - 1].rstrip() + "…"
+    if not cleaned:
+        return
+    data["description"] = cleaned
+    atomic_write(marker, json.dumps(data, indent=2) + "\n")
+
+
+def atomic_write(path: Path, data: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".tmp-")
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.write(data)
+        os.replace(tmp, path)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
+
+
+def main() -> int:
+    raw = sys.stdin.read()
+    try:
+        payload = json.loads(raw) if raw.strip() else {}
+    except Exception:
+        payload = {}
+
+    cwd = payload.get("cwd") or os.getcwd()
+    workspace = find_workspace_root(Path(cwd))
+    if workspace is None:
+        print("{}")
+        return 0
+
+    event = payload.get("hook_event_name") or "Unknown"
+    session_id = payload.get("session_id") or "unknown"
+    transcript = payload.get("transcript_path")
+    now_iso = time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime()) + "Z"
+
+    state_dir = workspace / ".conductor" / "claude"
+    state_file = state_dir / f"{session_id}.json"
+
+    # Best-effort: write a single .gitignore inside .conductor/ so transient
+    # state files never show up in `git status` for the worktree.
+    conductor_dir = workspace / ".conductor"
+    gitignore = conductor_dir / ".gitignore"
+    if not gitignore.exists():
+        try:
+            conductor_dir.mkdir(parents=True, exist_ok=True)
+            gitignore.write_text("*\n")
+        except OSError:
+            pass
+
+    if event == "SessionEnd":
+        try:
+            state_file.unlink(missing_ok=True)
+        except OSError:
+            pass
+        print("{}")
+        return 0
+
+    # First UserPromptSubmit ever: stash a truncated description in the
+    # marker file. Idempotent — only writes if no description exists yet.
+    if event == "UserPromptSubmit":
+        try:
+            maybe_set_description(workspace, payload.get("prompt"))
+        except Exception:
+            pass
+
+    state = EVENT_TO_STATE.get(event)
+    if state is None:
+        print("{}")
+        return 0
+
+    body = {
+        "sessionId": session_id,
+        "state": state,
+        "lastEvent": event,
+        "lastEventAt": now_iso,
+        "transcriptPath": transcript,
+    }
+    try:
+        atomic_write(state_file, json.dumps(body))
+    except Exception:
+        pass
+
+    print("{}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

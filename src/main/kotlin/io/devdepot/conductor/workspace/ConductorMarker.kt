@@ -25,6 +25,8 @@ object ConductorMarker {
         val defaultMergeStrategy: String,
         val createdAt: String? = null,
         val name: String? = null,
+        val description: String? = null,
+        val terminalPosition: String? = null,
         val pr: PrState? = null,
     )
 
@@ -56,6 +58,8 @@ object ConductorMarker {
                 defaultMergeStrategy = root.stringOr("defaultMergeStrategy", ""),
                 createdAt = root.stringOrNull("createdAt"),
                 name = root.stringOrNull("name"),
+                description = root.stringOrNull("description"),
+                terminalPosition = root.stringOrNull("terminalPosition"),
                 pr = root.getAsJsonObject("pr")?.let(::parsePrState),
             )
         } catch (e: Throwable) {
@@ -83,6 +87,8 @@ object ConductorMarker {
         existing.addProperty("defaultMergeStrategy", config.defaultMergeStrategy)
         if (config.createdAt != null) existing.addProperty("createdAt", config.createdAt)
         if (config.name != null) existing.addProperty("name", config.name)
+        if (config.description != null) existing.addProperty("description", config.description)
+        if (config.terminalPosition != null) existing.addProperty("terminalPosition", config.terminalPosition)
         if (config.pr != null) existing.add("pr", serializePrState(config.pr))
         return existing
     }
