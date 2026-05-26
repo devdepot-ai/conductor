@@ -5,6 +5,15 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-05-26
+
+- New AI Workspace dialog now uses the IDE's native auto-completing ref
+  picker for the base branch field.
+- Tool window workspace list rendered as a table with a dedicated
+  **Branch** column.
+- Internal: `WorkspacePanel.reload()` uses the cached snapshot instead of
+  recomputing on every reload.
+
 ## [0.2.0] - 2026-05-16
 
 - New AI Workspace dialog gains a **Run startup command after opening**

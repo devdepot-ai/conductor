@@ -28,6 +28,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.2.1</h4>
+<ul>
+  <li><b>New AI Workspace</b> dialog now uses the IDE's native auto-completing ref picker for the base branch field.</li>
+  <li>Tool window workspace list rendered as a table with a dedicated <b>Branch</b> column.</li>
+  <li>Internal: <code>WorkspacePanel.reload()</code> uses the cached snapshot instead of recomputing on every reload.</li>
+</ul>
+
 <h4>0.2.0</h4>
 <ul>
   <li><b>New AI Workspace</b> dialog now has a <b>Run startup command after opening</b> checkbox (checked by default). Uncheck it to create a workspace without auto-running the configured startup command — same behavior as the existing <b>Open Without Startup Command</b> action, but at creation time.</li>
