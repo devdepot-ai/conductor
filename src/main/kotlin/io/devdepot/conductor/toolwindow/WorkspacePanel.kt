@@ -87,7 +87,7 @@ class WorkspacePanel(
     }
 
     fun reload() {
-        populate(WorkspaceService.get(project).current())
+        populate(WorkspaceService.get(project).cachedSnapshot().current)
     }
 
     private fun populate(current: Workspace?) {
