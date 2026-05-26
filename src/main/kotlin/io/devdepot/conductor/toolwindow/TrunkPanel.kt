@@ -15,13 +15,15 @@ import com.intellij.openapi.progress.Task
 import com.intellij.openapi.project.Project
 import com.intellij.openapi.ui.SimpleToolWindowPanel
 import com.intellij.openapi.wm.ToolWindow
-import com.intellij.ui.ColoredListCellRenderer
+import com.intellij.ui.ColoredTableCellRenderer
 import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
-import com.intellij.ui.components.JBList
+import com.intellij.ui.table.TableView
+import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.JBUI
+import com.intellij.util.ui.ListTableModel
 import com.intellij.util.ui.StatusText
 import io.devdepot.conductor.actions.openWorkspace
 import io.devdepot.conductor.icons.ConductorIcons
@@ -29,17 +31,18 @@ import io.devdepot.conductor.toolwindow.actions.RefreshWorkspacesAction
 import io.devdepot.conductor.toolwindow.actions.confirmAndDiscardWorkspaces
 import io.devdepot.conductor.toolwindow.actions.promptAndRenameWorkspace
 import io.devdepot.conductor.util.RelativeTime
+import io.devdepot.conductor.workspace.ConductorMarker
 import io.devdepot.conductor.workspace.Workspace
 import io.devdepot.conductor.workspace.WorkspaceService
 import java.awt.Component
 import java.awt.Point
 import java.awt.event.MouseEvent
-import javax.swing.DefaultListModel
-import javax.swing.JList
+import javax.swing.JTable
 import javax.swing.ListSelectionModel
+import javax.swing.table.TableCellRenderer
 
 /**
- * Trunk-mode panel: toolbar + scrollable list of workspaces. Open via
+ * Trunk-mode panel: toolbar + scrollable table of workspaces. Open via
  * double-click; Open / Delete also available from the right-click menu.
  */
 class TrunkPanel(
@@ -50,10 +53,20 @@ class TrunkPanel(
     override fun getData(dataId: String): Any? =
         if (CommonDataKeys.PROJECT.`is`(dataId)) project else null
 
-    private val listModel = DefaultListModel<Workspace>()
-    private val list = JBList(listModel).apply {
-        selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
-        cellRenderer = WorkspaceCellRenderer()
+    private val tableModel = ListTableModel<Workspace>(
+        NameColumn(),
+        BranchColumn(),
+        PrColumn(),
+        CreatedColumn(),
+    )
+
+    private val table = TableView(tableModel).apply {
+        selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
+        setShowGrid(false)
+        intercellSpacing = java.awt.Dimension(0, 0)
+        rowHeight = JBUI.scale(22)
+        autoResizeMode = JTable.AUTO_RESIZE_LAST_COLUMN
+        tableHeader.reorderingAllowed = false
         emptyText.text = "No workspaces"
         emptyText.appendSecondaryText(
             "Click + to create one",
@@ -78,11 +91,11 @@ class TrunkPanel(
             add(RenameSelectedAction())
             add(DeleteSelectedAction())
         }
-        list.addMouseListener(object : PopupHandler() {
+        table.addMouseListener(object : PopupHandler() {
             override fun invokePopup(comp: Component, x: Int, y: Int) {
-                val index = list.locationToIndex(Point(x, y))
-                if (index >= 0 && !list.isSelectedIndex(index)) {
-                    list.selectedIndex = index
+                val row = table.rowAtPoint(Point(x, y))
+                if (row >= 0 && !table.isRowSelected(row)) {
+                    table.setRowSelectionInterval(row, row)
                 }
                 ActionManager.getInstance()
                     .createActionPopupMenu(ActionPlaces.TOOLWINDOW_POPUP, popup)
@@ -93,15 +106,25 @@ class TrunkPanel(
 
         object : DoubleClickListener() {
             override fun onDoubleClick(event: MouseEvent): Boolean {
-                val index = list.locationToIndex(event.point)
-                if (index < 0) return false
-                val workspace = listModel.getElementAt(index) ?: return false
+                val row = table.rowAtPoint(event.point)
+                if (row < 0) return false
+                val workspace = workspaceAt(row) ?: return false
                 openWorkspace(project, workspace)
                 return true
             }
-        }.installOn(list)
+        }.installOn(table)
 
-        setContent(ScrollPaneFactory.createScrollPane(list, true))
+        adjustColumnWidths()
+
+        setContent(ScrollPaneFactory.createScrollPane(table, true))
+    }
+
+    private fun adjustColumnWidths() {
+        val cols = table.columnModel
+        cols.getColumn(0).preferredWidth = JBUI.scale(180) // Name
+        cols.getColumn(1).preferredWidth = JBUI.scale(160) // Branch
+        cols.getColumn(2).preferredWidth = JBUI.scale(110) // PR
+        cols.getColumn(3).preferredWidth = JBUI.scale(110) // Created
     }
 
     private fun buildToolbarGroup(): DefaultActionGroup {
@@ -117,14 +140,21 @@ class TrunkPanel(
                 val workspaces = WorkspaceService.get(project).list()
                 ApplicationManager.getApplication().invokeLater({
                     if (project.isDisposed) return@invokeLater
-                    listModel.clear()
-                    workspaces.forEach(listModel::addElement)
+                    tableModel.items = workspaces
                 }, ModalityState.any())
             }
         }.queue()
     }
 
-    private fun selectedWorkspaces(): List<Workspace> = list.selectedValuesList ?: emptyList()
+    private fun workspaceAt(viewRow: Int): Workspace? {
+        if (viewRow < 0) return null
+        val modelRow = table.convertRowIndexToModel(viewRow)
+        if (modelRow < 0 || modelRow >= tableModel.rowCount) return null
+        return tableModel.getItem(modelRow)
+    }
+
+    private fun selectedWorkspaces(): List<Workspace> =
+        table.selectedRows.toList().mapNotNull { workspaceAt(it) }
 
     private inner class OpenSelectedAction :
         AnAction("Open", "Open this workspace in a new window", ConductorIcons.Open) {
@@ -159,7 +189,7 @@ class TrunkPanel(
     }
 
     private inner class RenameSelectedAction :
-        AnAction("Rename\u2026", "Rename this workspace", null) {
+        AnAction("Rename…", "Rename this workspace", null) {
         override fun getActionUpdateThread(): ActionUpdateThread = ActionUpdateThread.EDT
 
         override fun update(e: AnActionEvent) {
@@ -189,45 +219,103 @@ class TrunkPanel(
         }
     }
 
-    private class WorkspaceCellRenderer : ColoredListCellRenderer<Workspace>() {
-        override fun customizeCellRenderer(
-            list: JList<out Workspace>,
-            value: Workspace,
-            index: Int,
-            selected: Boolean,
-            hasFocus: Boolean,
-        ) {
-            icon = ConductorIcons.InWorkspace
-            val nameAttrs = if (value.isOpen) {
-                SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
-            } else {
-                SimpleTextAttributes.REGULAR_ATTRIBUTES
-            }
-            append(value.name, nameAttrs)
-            if (value.name != value.branch) {
-                append("  ${value.branch}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-            }
-            if (value.isCurrent) {
-                append("  current", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-            } else if (value.isOpen) {
-                append("  ● open", OPEN_ATTRIBUTES)
-            }
-            val pr = io.devdepot.conductor.workspace.ConductorMarker.readConfig(value.location)?.pr
-            if (pr != null) {
-                append("  PR #${pr.number} · ${pr.state}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
-            }
-            append(
-                "    Created ${RelativeTime.format(value.createdAt)} · ${value.location}",
-                SimpleTextAttributes.GRAYED_ATTRIBUTES,
-            )
-            ipad = JBUI.insets(4, 6)
-        }
+    private abstract class WorkspaceColumn(title: String) : ColumnInfo<Workspace, Workspace>(title) {
+        override fun valueOf(item: Workspace?): Workspace? = item
+        override fun getRenderer(item: Workspace?): TableCellRenderer = cellRenderer
+        protected abstract val cellRenderer: TableCellRenderer
+    }
 
-        companion object {
-            private val OPEN_ATTRIBUTES = SimpleTextAttributes(
-                SimpleTextAttributes.STYLE_PLAIN,
-                com.intellij.ui.JBColor(0x2E7D32, 0x7BC67B),
-            )
+    private class NameColumn : WorkspaceColumn("Name") {
+        override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
+            override fun customizeCellRenderer(
+                table: JTable,
+                value: Any?,
+                selected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int,
+            ) {
+                val ws = value as? Workspace ?: return
+                icon = ConductorIcons.InWorkspace
+                val attrs = if (ws.isOpen) {
+                    SimpleTextAttributes.REGULAR_BOLD_ATTRIBUTES
+                } else {
+                    SimpleTextAttributes.REGULAR_ATTRIBUTES
+                }
+                append(ws.name, attrs)
+                if (ws.isCurrent) {
+                    append("  current", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                } else if (ws.isOpen) {
+                    append("  ● open", OPEN_ATTRIBUTES)
+                }
+                toolTipText = ws.location.toString()
+                ipad = JBUI.insets(4, 6)
+            }
         }
+    }
+
+    private class BranchColumn : WorkspaceColumn("Branch") {
+        override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
+            override fun customizeCellRenderer(
+                table: JTable,
+                value: Any?,
+                selected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int,
+            ) {
+                val ws = value as? Workspace ?: return
+                append(ws.branch, SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                toolTipText = ws.branch
+                ipad = JBUI.insets(4, 6)
+            }
+        }
+    }
+
+    private class PrColumn : WorkspaceColumn("PR") {
+        override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
+            override fun customizeCellRenderer(
+                table: JTable,
+                value: Any?,
+                selected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int,
+            ) {
+                val ws = value as? Workspace ?: return
+                val pr = ConductorMarker.readConfig(ws.location)?.pr
+                if (pr == null) {
+                    append("—", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                } else {
+                    append("#${pr.number}", SimpleTextAttributes.REGULAR_ATTRIBUTES)
+                    append(" · ${pr.state}", SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                }
+                ipad = JBUI.insets(4, 6)
+            }
+        }
+    }
+
+    private class CreatedColumn : WorkspaceColumn("Created") {
+        override val cellRenderer: TableCellRenderer = object : ColoredTableCellRenderer() {
+            override fun customizeCellRenderer(
+                table: JTable,
+                value: Any?,
+                selected: Boolean,
+                hasFocus: Boolean,
+                row: Int,
+                column: Int,
+            ) {
+                val ws = value as? Workspace ?: return
+                append(RelativeTime.format(ws.createdAt), SimpleTextAttributes.GRAYED_ATTRIBUTES)
+                ipad = JBUI.insets(4, 6)
+            }
+        }
+    }
+
+    companion object {
+        private val OPEN_ATTRIBUTES = SimpleTextAttributes(
+            SimpleTextAttributes.STYLE_PLAIN,
+            com.intellij.ui.JBColor(0x2E7D32, 0x7BC67B),
+        )
     }
 }
