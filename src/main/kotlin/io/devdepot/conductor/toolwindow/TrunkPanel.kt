@@ -20,7 +20,7 @@ import com.intellij.ui.DoubleClickListener
 import com.intellij.ui.PopupHandler
 import com.intellij.ui.ScrollPaneFactory
 import com.intellij.ui.SimpleTextAttributes
-import com.intellij.ui.table.JBTable
+import com.intellij.ui.table.TableView
 import com.intellij.util.ui.ColumnInfo
 import com.intellij.util.ui.JBUI
 import com.intellij.util.ui.ListTableModel
@@ -60,7 +60,7 @@ class TrunkPanel(
         CreatedColumn(),
     )
 
-    private val table = JBTable(tableModel).apply {
+    private val table = TableView(tableModel).apply {
         selectionModel.selectionMode = ListSelectionModel.MULTIPLE_INTERVAL_SELECTION
         setShowGrid(false)
         intercellSpacing = java.awt.Dimension(0, 0)
