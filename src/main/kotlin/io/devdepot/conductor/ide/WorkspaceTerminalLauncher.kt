@@ -37,17 +37,31 @@ object WorkspaceTerminalLauncher {
     /**
      * Marker > settings > "claude" when Claude hooks are installed. Blank
      * result means "send nothing — leave the user at a plain prompt".
+     *
+     * When the marker carries an initial prompt (captured at creation while
+     * Claude integration was on), it is appended to the resolved command as a
+     * shell-quoted CLI argument — e.g. `claude 'review the diff'` — so Claude
+     * starts with that first message already submitted. This is more robust
+     * than typing into the running session, which would race Claude's startup.
      */
     private fun resolveTerminalStartCommand(project: Project): String? {
         val base = project.basePath?.let(Path::of)
-        val fromMarker = base?.let { ConductorMarker.readConfig(it)?.terminalStartCommand }
+        val config = base?.let { ConductorMarker.readConfig(it) }
+        val fromMarker = config?.terminalStartCommand
         val raw = fromMarker?.takeIf { it.isNotBlank() }
             ?: ConductorSettings.get(project).terminalStartCommand.takeIf { it.isNotBlank() }
-        if (raw != null) return raw
-        return if (ClaudeCodeDetector.get().get() == ClaudeCodeDetector.State.InstalledWithHooks) {
+        val claudeDefault = if (ClaudeCodeDetector.get().get() == ClaudeCodeDetector.State.InstalledWithHooks) {
             "claude"
-        } else null
+        } else {
+            null
+        }
+        val command = (raw ?: claudeDefault) ?: return null
+        val prompt = config?.initialPrompt?.takeIf { it.isNotBlank() } ?: return command
+        return "$command ${singleQuote(prompt)}"
     }
+
+    /** POSIX single-quote a string so it survives the shell as one argument. */
+    private fun singleQuote(s: String): String = "'" + s.replace("'", "'\\''") + "'"
 
     private fun applyAnchor(project: Project) {
         val desired = resolveTerminalPosition(project)

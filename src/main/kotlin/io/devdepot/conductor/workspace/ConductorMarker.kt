@@ -28,6 +28,7 @@ object ConductorMarker {
         val description: String? = null,
         val terminalPosition: String? = null,
         val terminalStartCommand: String? = null,
+        val initialPrompt: String? = null,
         val pr: PrState? = null,
     )
 
@@ -62,6 +63,7 @@ object ConductorMarker {
                 description = root.stringOrNull("description"),
                 terminalPosition = root.stringOrNull("terminalPosition"),
                 terminalStartCommand = root.stringOrNull("terminalStartCommand"),
+                initialPrompt = root.stringOrNull("initialPrompt"),
                 pr = root.getAsJsonObject("pr")?.let(::parsePrState),
             )
         } catch (e: Throwable) {
@@ -92,6 +94,7 @@ object ConductorMarker {
         if (config.description != null) existing.addProperty("description", config.description)
         if (config.terminalPosition != null) existing.addProperty("terminalPosition", config.terminalPosition)
         if (config.terminalStartCommand != null) existing.addProperty("terminalStartCommand", config.terminalStartCommand)
+        if (config.initialPrompt != null) existing.addProperty("initialPrompt", config.initialPrompt)
         if (config.pr != null) existing.add("pr", serializePrState(config.pr))
         return existing
     }

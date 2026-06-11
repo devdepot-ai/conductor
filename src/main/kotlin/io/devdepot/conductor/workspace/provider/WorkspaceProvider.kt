@@ -59,4 +59,23 @@ data class CreateSpec(
     val baseBranch: String,
     val slug: String,
     val skipStartupCommand: Boolean = false,
+    /**
+     * When true, [branchName] is an *existing* ref to check out (local branch,
+     * or a remote-tracking ref like `origin/feature` which gets a local
+     * tracking branch) rather than a new branch to create from [baseBranch].
+     */
+    val useExistingBranch: Boolean = false,
+    /**
+     * Optional message to seed the Claude terminal session with. Passed to the
+     * `claude` start command as a CLI argument (`claude "<prompt>"`) so it is
+     * submitted as the first prompt when the workspace opens. Only meaningful
+     * when Claude Code integration is active.
+     */
+    val initialPrompt: String? = null,
+    /**
+     * Per-workspace override for the startup command. When non-null it is
+     * written to the marker instead of the configured default; an empty string
+     * means "run nothing". Ignored when [skipStartupCommand] is true.
+     */
+    val startupCommandOverride: String? = null,
 )
