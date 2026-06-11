@@ -5,6 +5,22 @@ follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-11
+
+- New **Check out an existing branch** mode in the New AI Workspace
+  dialog: a branch picker over local and remote refs that opens a
+  worktree on an existing branch without creating a new one. A remote
+  ref (e.g. `origin/feature`) gets a local tracking branch.
+- **Open as AI Workspace…** action added to the native Git branches
+  popup (positioned under *New Branch from…*); it opens the dialog with
+  the selected branch preselected rather than creating immediately.
+- The dialog can now **override the startup command** per workspace
+  (editable when *Run startup command* is checked) and seed Claude's
+  first prompt through a *Message to Claude* field when Claude Code
+  integration is active.
+- Internal: shared `NewWorkspaceLauncher` backs both the menu action and
+  the branch-popup action.
+
 ## [0.3.0] - 2026-05-26
 
 - Claude Code integration: live session status surfaces in the

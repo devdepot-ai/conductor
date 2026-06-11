@@ -28,6 +28,13 @@
     ]]></description>
 
     <change-notes><![CDATA[
+<h4>0.4.0</h4>
+<ul>
+  <li><b>Open an existing branch as a workspace</b>: the <b>New AI Workspace</b> dialog gains a <b>Check out an existing branch</b> mode with a branch picker over local and remote refs. No new branch is created — checking out a remote ref (e.g. <code>origin/feature</code>) creates a local tracking branch.</li>
+  <li><b>Open as AI Workspace…</b> added to the native Git branches popup (under <i>New Branch from…</i>): opens the dialog with that branch preselected.</li>
+  <li>The dialog now lets you <b>override the startup command</b> for a single workspace (editable when <i>Run startup command</i> is checked) and seed Claude's <b>first prompt</b> via a <i>Message to Claude</i> field when Claude Code integration is active.</li>
+</ul>
+
 <h4>0.3.0</h4>
 <ul>
   <li><b>Claude Code integration</b>: live session status surfaces in the Conductor tool window. A new <b>Claude</b> column in the trunk panel and a workspace-panel row reflect Claude Code's <code>SessionStart</code> / <code>UserPromptSubmit</code> / <code>PreToolUse</code> / <code>PostToolUse</code> / <code>Stop</code> / <code>Notification</code> / <code>SessionEnd</code> lifecycle events, wired through a user-global hook installed into <code>~/.claude/settings.json</code>.</li>
