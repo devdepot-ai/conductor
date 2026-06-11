@@ -173,10 +173,21 @@ class WorkspaceService(private val project: Project) {
         baseBranch: String,
         slug: String,
         skipStartupCommand: Boolean = false,
+        useExistingBranch: Boolean = false,
+        initialPrompt: String? = null,
+        startupCommand: String? = null,
     ): Result {
         val result = provider.create(
             project,
-            CreateSpec(branchName, baseBranch, slug, skipStartupCommand),
+            CreateSpec(
+                branchName,
+                baseBranch,
+                slug,
+                skipStartupCommand,
+                useExistingBranch,
+                initialPrompt,
+                startupCommand,
+            ),
         )
         if (result is Result.Ok) invalidate()
         return result

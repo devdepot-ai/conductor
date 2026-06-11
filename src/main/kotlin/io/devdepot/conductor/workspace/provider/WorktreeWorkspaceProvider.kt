@@ -89,7 +89,24 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             return WorkspaceService.Result.Error("Failed to create worktree root $root: ${e.message}")
         }
 
-        val r = Git.worktreeAdd(repo, spec.branchName, worktreePath, spec.baseBranch)
+        // For an existing ref, the workspace's branch is the local branch we
+        // check out — which for a remote-tracking ref (origin/feature) is the
+        // ref minus its remote prefix (feature).
+        val effectiveBranch = if (spec.useExistingBranch) {
+            Git.localNameForRef(spec.branchName, Git.listRemotes(repo))
+        } else {
+            spec.branchName
+        }
+
+        val r = if (spec.useExistingBranch) {
+            if (Git.localBranchExists(repo, effectiveBranch)) {
+                Git.worktreeAddCheckout(repo, worktreePath, effectiveBranch)
+            } else {
+                Git.worktreeAddTracking(repo, effectiveBranch, worktreePath, spec.branchName)
+            }
+        } else {
+            Git.worktreeAdd(repo, spec.branchName, worktreePath, spec.baseBranch)
+        }
         if (!r.ok) {
             return WorkspaceService.Result.Error("git worktree add failed:\n${r.stderr.ifBlank { r.stdout }}")
         }
@@ -101,13 +118,14 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
             ConductorMarker.writeConfig(
                 worktreePath,
                 ConductorMarker.Config(
-                    startupCommand = settings.startupCommand,
+                    startupCommand = spec.startupCommandOverride ?: settings.startupCommand,
                     openTerminalOnStart = settings.openTerminalOnStart,
                     defaultMergeStrategy = settings.defaultMergeStrategy.id,
                     createdAt = createdAt.toString(),
-                    name = spec.branchName,
+                    name = effectiveBranch,
                     terminalPosition = settings.terminalPosition.id,
                     terminalStartCommand = settings.terminalStartCommand,
+                    initialPrompt = spec.initialPrompt?.takeIf { it.isNotBlank() },
                 ),
             )
         } catch (e: Exception) {
@@ -129,8 +147,8 @@ class WorktreeWorkspaceProvider : WorkspaceProvider {
         }
 
         val workspace = WorktreeWorkspace(
-            name = spec.branchName,
-            branch = spec.branchName,
+            name = effectiveBranch,
+            branch = effectiveBranch,
             isCurrent = false,
             worktreePath = worktreePath,
             createdAt = createdAt,

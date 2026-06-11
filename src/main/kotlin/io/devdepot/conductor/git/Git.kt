@@ -161,6 +161,48 @@ object Git {
             mainRepo,
         )
 
+    /**
+     * Add a worktree that checks out an *existing local* branch — no new branch
+     * is created. Fails (by git's own rule) if the branch is already checked
+     * out in another worktree.
+     */
+    fun worktreeAddCheckout(mainRepo: Path, worktreePath: Path, branch: String): GitResult =
+        exec(listOf("worktree", "add", worktreePath.toString(), branch), mainRepo)
+
+    /**
+     * Add a worktree for a remote-tracking ref, creating a local branch that
+     * tracks it (`git worktree add --track -b <local> <path> <remoteRef>`).
+     */
+    fun worktreeAddTracking(
+        mainRepo: Path,
+        localBranch: String,
+        worktreePath: Path,
+        remoteRef: String,
+    ): GitResult =
+        exec(
+            listOf("worktree", "add", "--track", "-b", localBranch, worktreePath.toString(), remoteRef),
+            mainRepo,
+        )
+
+    fun localBranchExists(mainRepo: Path, branch: String): Boolean =
+        exec(listOf("show-ref", "--verify", "--quiet", "refs/heads/$branch"), mainRepo).ok
+
+    fun listRemotes(mainRepo: Path): List<String> {
+        val r = exec(listOf("remote"), mainRepo)
+        if (!r.ok) return emptyList()
+        return r.stdout.lines().filter { it.isNotBlank() }
+    }
+
+    /**
+     * The local branch name for a picked ref: strips a leading `<remote>/`
+     * from a remote-tracking ref (e.g. `origin/feature` → `feature`), leaving
+     * local refs untouched. Pure helper, kept here for testability.
+     */
+    fun localNameForRef(ref: String, remotes: List<String>): String {
+        val remote = remotes.firstOrNull { ref.startsWith("$it/") }
+        return if (remote != null) ref.removePrefix("$remote/") else ref
+    }
+
     fun worktreeRemove(mainRepo: Path, worktreePath: Path, force: Boolean = false): GitResult {
         val args = mutableListOf("worktree", "remove")
         if (force) args += "--force"

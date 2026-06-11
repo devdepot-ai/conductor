@@ -164,5 +164,15 @@
                     text="Settings..."
                     description="Open the Conductor settings page."/>
         </group>
+
+        <action id="Conductor.OpenBranchAsWorkspace"
+                class="io.devdepot.conductor.actions.OpenBranchAsWorkspaceAction"
+                icon="AllIcons.General.Add"
+                text="Open as AI Workspace..."
+                description="Check this branch out into a new AI workspace (git worktree + dedicated IDE window).">
+            <add-to-group group-id="Git.Branch"
+                          anchor="after"
+                          relative-to-action="GitCheckoutAsNewBranch"/>
+        </action>
     </actions>
 </idea-plugin>
